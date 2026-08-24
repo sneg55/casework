@@ -65,6 +65,34 @@ python3 scripts/probe_catalog.py --replay data/runs/2026-08-24.json
 Runs on file are what the 3-day rule counts, so the day counter is history rather than a
 staged prop.
 
+## Run the whole thing
+
+Four processes, none of which needs a credential to reach public data. Node 22+, Python 3.11+,
+and [uv](https://docs.astral.sh/uv/) for the Python dev tools.
+
+```bash
+npm install && uv sync
+
+# 1. Capture a run. Writes data/runs/<date>.json.
+python3 scripts/probe_catalog.py --jurisdiction California
+
+# 2. Build the cases for it. Fetches nothing; replays the captured run.
+npm run build:cases -w @casework/mcp
+
+# 3. The read API the screens are built on.
+npm run api -w @casework/mcp          # http://localhost:8791/api/queue
+
+# 4. The queue and case screens.
+npm run dev -w @casework/ui           # http://localhost:5273
+```
+
+The agent itself runs on TrueForge and needs three more things: a model FQN from the
+TrueFoundry gateway, the `casework-sop` skill registered with the harness skill store, and
+`casework-mcp` registered as an MCP server (`npm run start -w @casework/mcp`). See
+[`agent/README.md`](agent/README.md). `outreach.send` is the only approval-gated tool, and no
+transport is wired: approving writes the message to `data/outbox/` and nothing leaves the
+machine.
+
 ## Working on it
 
 Node 22+ for the TypeScript packages, Python 3.11+ for the probe, [uv](https://docs.astral.sh/uv/)

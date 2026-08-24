@@ -16,9 +16,9 @@ CLAUDE.local.md
 __pycache__/
 .venv/
 node_modules/
-dist/
-build/
-coverage/
+**/dist/
+**/build/
+**/coverage/
 .env
 
 # derived from the run files, rebuilt by cases.build

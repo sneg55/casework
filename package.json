@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",
+    "@truefoundry/trueforge-core": "^0.1.4",
     "eslint": "^9.18.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-eslint-comments": "^3.2.0",
