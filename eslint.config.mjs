@@ -19,10 +19,10 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   {
     ignores: [
-      'dist/**',
-      'build/**',
-      'coverage/**',
-      'node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/coverage/**',
+      '**/node_modules/**',
       '.venv/**',
       'data/**',
       '*.config.*',
@@ -72,7 +72,9 @@ export default tseslint.config(
       '@typescript-eslint/prefer-readonly': 'error',
 
       // ── Tier 2: Imports (catches hallucinated modules - Biome can't resolve) ─
-      'import/no-unresolved': 'error',
+      // tsc owns module resolution here: it reads package `exports` maps, which the
+      // import plugin's resolver does not, and `npm run typecheck` fails on a bad path.
+      'import/no-unresolved': 'off',
       'import/no-cycle': ['error', { maxDepth: 10 }],
       'import/no-self-import': 'error',
       'import/no-extraneous-dependencies': 'error',
@@ -140,6 +142,8 @@ export default tseslint.config(
   {
     files: ['**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
     rules: {
+      // The test runner is a workspace-root devDependency, which is where it belongs.
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       'sonarjs/no-duplicate-string': 'off',

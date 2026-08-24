@@ -19,11 +19,19 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
-  // ── External services (examples - replace with your own) ─────────────────
-  // DATABASE_URL: z.string().url(),
-  // REDIS_URL: z.string().url().optional(),
-  // ANTHROPIC_API_KEY: z.string().min(1),
-  // SENTRY_DSN: z.string().url().optional(),
+  // ── Casework ─────────────────────────────────────────────────────────────
+  // Paths are relative to the repository root, which is where the server is started.
+  CASEWORK_RUN_DIR: z.string().default('data/runs'),
+  CASEWORK_OUTBOX_DIR: z.string().default('data/outbox'),
+  CASEWORK_DB: z.string().default('data/casework.sqlite'),
+  CASEWORK_PROBE: z.string().default('scripts/probe_catalog.py'),
+  CASEWORK_PYTHON: z.string().default('python3'),
+
+  // Holds addresses. Never committed, never read outside outreach.send.
+  CASEWORK_REGISTRY_PATH: z.string().default('registry.local.json'),
+
+  // Optional. repo.inspect works unauthenticated; a token raises the API rate limit.
+  GITHUB_TOKEN: z.string().min(1).optional(),
 }) satisfies z.ZodType
 
 export type Env = z.infer<typeof envSchema>

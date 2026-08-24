@@ -1,0 +1,25 @@
+name: capture
+
+# The 3-day rule counts run files, and a missed day cannot be backfilled honestly.
+# This captures one run a day and commits it. Manual runs are allowed during the event.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/probe_catalog.py --jurisdiction California
+      - name: Commit the run if it changed
+        run: |
+          git config user.name "casework-capture"
+          git config user.email "casework-capture@users.noreply.github.com"
+          git add data/runs
+          git diff --cached --quiet || git commit -m "Capture $(date -u +%F)"
+          git push

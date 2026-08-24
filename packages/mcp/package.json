@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "description": "Casework MCP server: catalog, cases, evidence, outreach",
-  "bin": {
-    "casework-mcp": "./src/entrypoints/stdio.ts"
-  },
   "scripts": {
+    "start": "tsx src/entrypoints/stdio.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "api": "tsx src/entrypoints/http.ts",
+    "build:cases": "tsx src/entrypoints/build.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -17,7 +17,9 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@truefoundry/trueforge-core": "^0.1.4",
     "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.10.0"
+    "@types/node": "^22.10.0",
+    "vitest": "^3.0.0"
   }
 }

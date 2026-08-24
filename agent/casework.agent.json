@@ -1,0 +1,24 @@
+{
+  "model": { "name": "truefoundry/casework-model", "params": { "max_tokens": 8192 } },
+  "instructions": "You work a transit data steward's feed-failure queue. Follow the casework-sop skill exactly: it carries the three-run rule, the suppression rules, the attribution rules and the message tone. Group by cause, attribute with evidence, draft from what was observed, and stop for a human before anything is sent. Never ask for or record a contact address.",
+  "skills": [{ "name": "casework-sop" }],
+  "mcp_servers": [
+    {
+      "name": "casework",
+      "preload": true,
+      "enable_tools": ["@all"],
+      "preload_tools": ["cases.list", "cases.build"],
+      "require_approval_for_tools": ["outreach.send"]
+    }
+  ],
+  "config": {
+    "sandbox": { "enabled": true },
+    "dynamic_sub_agents": { "enabled": true },
+    "generative_ui": { "enabled": true },
+    "ask_user_questions": { "enabled": true },
+    "context_management": {
+      "compaction": { "enabled": true },
+      "large_tool_response": { "enabled": true }
+    }
+  }
+}

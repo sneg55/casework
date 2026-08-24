@@ -164,7 +164,8 @@ job it exists for, and the project stops working if you remove any of them.
   ├── Skill (git-backed)          casework-sop/SKILL.md
   │                               the 3-day rule, attribution rules, suppression rules,
   │                               message tone and escalation ladder
-  ├── Sandbox + Code Mode         probe_catalog.py, detection.py, cases.py
+  ├── Sandbox + Code Mode         probe_catalog.py, detection.py, cases.py,
+  │                               case_document.py, catalog_query.py
   │                               256 feeds, 12 at a time, range-limited reads and
   │                               magic-byte checks. Returns a table, never the payloads.
   ├── Subagents                   one per candidate case, each testing a single
@@ -215,6 +216,8 @@ itself splits.
   ├── scripts/probe_catalog.py       sandbox code, stdlib only: CLI, capture, report
   ├── scripts/detection.py           one feed, one observation
   ├── scripts/cases.py               triage, grouping, cause and party resolution
+  ├── scripts/case_document.py       the machine-readable form of a run
+  ├── scripts/catalog_query.py       catalog summary, or the rows asked for
   ├── data/runs/<date>.json          one capture per run, committed
   ├── packages/mcp/                  casework-mcp, TypeScript, stdio
   ├── packages/ui/                   React shell embedding the SDK
@@ -258,16 +261,20 @@ right place; it is not a claim that mail was sent.
 
 | Tool | Reads/writes | Notes |
 |---|---|---|
-| `catalog.load(jurisdiction)` | read | Fetches the public catalog CSV, returns rows with provider, url, auth type, **`status`, `redirect.id`**, and contact presence. **Never returns contact addresses.** |
+| `catalog.load(jurisdiction, feed_ids?)` | read | Reads the public catalog CSV in the sandbox. Without `feed_ids` it returns a **summary**: counts by status and authentication type, redirects, contacts on file, top hosts. With them it returns those rows: provider, url, auth type, **`status`, `redirect.id`**, contact presence. **Never returns contact addresses**, and never the 1.12 MB CSV. |
 | `probe.run(jurisdiction, feed_ids?)` | read + capture | Delegates to the sandbox script, which fetches nothing but the catalog and the feeds and writes the run to `data/runs/<date>.json`. Returns detections only. `--no-capture` reports without writing, for a re-probe during attribution. |
-| `cases.build(run_date)` | write | Triage, clustering, cause resolution, day counts. Idempotent per run date. |
+| `cases.build(run_date?)` | write | Triage, clustering, cause resolution and run counts, then persistence. **Delegates to the sandbox** (`probe_catalog.py --replay <run> --json`) rather than reimplementing any of it, so the rules stay in the one module section 6 names. Fetches nothing. Idempotent per run date, because `case_id` is derived from `cause_key`. |
 | `cases.list(state)` | read | Queue for the UI, suppressed rows included with their reason. |
 | `evidence.get(case_id)` | read | Every observation backing a case, with timestamps. |
 | `repo.inspect(host, path)` | read | GitHub API: does the repo exist, is it archived, when was it pushed, what paths exist. The attribution step for code-hosted feeds. |
 | `tls.inspect(host)` | read | Opens one TLS connection and returns the certificate subject, issuer and expiry. The probe records only that a handshake failed; the certificate detail is collected here, at attribution time, for the same reason `repo.inspect` is. |
 | `redirect.resolve(feed_id)` | read | Follows a catalog `redirect.id` to the replacement entry and probes it, so a suppressed row can prove the replacement is actually healthy. |
 | `recipient.lookup(case_id)` | read | Returns the **kind** of recipient and whether an address is on file. Never the address. |
-| `outreach.draft(case_id)` | write | Produces the message. Not gated. |
+| `cases.attribute(case_id)` | write | Runs the investigation for the cause kind, writes what it read as evidence, records the party and a counted confidence. |
+| `outreach.draft(case_id)` | write | Composes the message from the case and its evidence. Not gated. |
+| `outreach.revise(case_id, subject, body)` | write | Stores an edited draft. The previous one is kept; the latest is what `send` reads. |
+| `outreach.review(case_id)` | read | The current draft. |
+| `outreach.decide(case_id, reject\|snooze)` | write | The human decisions that are not approvals. |
 | **`outreach.send(case_id)`** | **write, external** | **Approval-gated. The only tool that leaves the building.** |
 
 **Who the message is addressed to.** The catalog's `feed_contact_email` covers agencies, and
@@ -342,9 +349,11 @@ its HTTP family, and anything left over is `host_unreachable`. No status class i
 none reaches a case without a kind.
 
 Detections persist as one JSON file per run date under `data/runs/`, which is both the audit
-record and the input to the run counter. The MCP server mirrors them into the harness's SQLite
-for querying; the files stay canonical so a run can be replayed with nothing else installed. A
-date holds exactly one file, the last run of that date.
+record and the input to the run counter. A date holds exactly one file, the last run of that
+date. The MCP server mirrors what it needs into `data/casework.sqlite`, which is derived,
+gitignored and rebuildable from the run files by `cases.build`; the closed enums are repeated
+there as CHECK constraints, so an unknown cause kind or state cannot reach a table even if a
+tool schema is loosened later.
 
 **Identity.** `case_id` is the first 12 hex characters of the SHA-1 of `cause_key`. It is
 derived, not allocated, so the same cause is the same case tomorrow and `cases.build` is
@@ -544,8 +553,8 @@ themed atoms, swappable slots and a layout set (`DockLayout`, `SidebarLayout`, `
 not a general application framework, so the division of labour is fixed here rather than left
 to the week:
 
-- **The screens are ordinary React routes** in the shell, reading `cases.list`, `evidence.get`
-  and `recipient.lookup` through the MCP server. They own the layout, the drill-down and the
+- **The screens are ordinary React routes** in the shell, reading the queue and case through a
+  narrow HTTP read API over the same store (`packages/mcp/src/entrypoints/http.ts`). They own the layout, the drill-down and the
   URL, because "every number is clickable" and "link a judge to a case" are both routing
   problems and neither survives being regenerated by a model on each turn.
 - **OpenUI is used where generation is the point**: the agent's in-chat case summary and the
@@ -554,7 +563,11 @@ to the week:
   call, gated by the harness, so approve means approve rather than a UI state a backend has to
   be told about afterwards.
 - **The action bar in the case route dispatches to the agent**, which is what raises the
-  harness's approval prompt in the docked pane. One path to `outreach.send`, not two.
+  harness's approval prompt in the docked pane. One path to `outreach.send`, not two. The read
+  API has no send route at all: it answers `405` and says where approval happens, so a UI
+  cannot POST its way past the gate and make it decorative.
+- Approve is rendered disabled with the reason next to it: the run count, the missing
+  attribution, the missing channel or the missing draft, whichever is blocking.
 
 **Queue.** Cases ranked by actionable agency count. Each row: cause kind, host or repository,
 agency count, corroborating count, responsible party, confidence, day counter, state. A
@@ -603,11 +616,11 @@ Sized in files and lines, not in time. Calendar days are the event's, not an eff
 | Day | Deliverable | Size |
 |---|---|---|
 | 08-24 | Licence, AI-use disclosure in README, `probe_catalog.py` with catalog triage, cause resolution, grouping, run counter and replay, first real run committed, npm workspace and both lint and test toolchains green, 15 tests over the triage and grouping rules | ~450 LOC, 12 files |
-| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`, `casework-mcp` skeleton, catalog and probe tools, Detection and Case persistence, recipient registry with no addresses in it | ~400 LOC, 9 files |
-| 08-26 | `repo.inspect`, `redirect.resolve`, per-case attribution and confidence, the second and third captured runs | ~300 LOC, 4 files |
-| 08-27 | Agent definition, `casework-sop/SKILL.md` registered with the harness skill store, subagent per case, draft generation | ~200 LOC, 3 files |
-| 08-28 | UI: shell plus queue and case screens, per section 11 | ~450 LOC, 8 files |
-| 08-29 | Approval gate end to end, outbox transport seam, traces, fallback replay, README with setup a judge can actually run | ~150 LOC, 3 files |
+| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`. Landed early on 08-24: `casework-mcp` over stdio with `catalog.load`, `probe.run`, `cases.build`, `cases.list`, `evidence.get` and `recipient.lookup`, SQLite persistence with the case state machine, the recipient registry with no addresses in it, and 17 tests including an end-to-end MCP round trip | ~900 LOC, 14 files |
+| 08-26 | Landed early: `repo.inspect`, `tls.inspect`, `redirect.resolve`, per-case attribution with counted confidence. Still to do: the second and third captured runs, which only time can produce | ~350 LOC, 4 files |
+| 08-27 | Landed early: agent definition validated against the harness's own `AgentSpecSchema`, `casework-sop/SKILL.md`, draft generation. Still to do: registering the skill with a running harness, and the per-case subagent prompt | ~250 LOC, 4 files |
+| 08-28 | Landed early: read API, queue and case screens, per section 11. Still to do: docking the agent chat beside them, which needs a running harness | ~600 LOC, 9 files |
+| 08-29 | Landed early: the approval gate's refusals, the outbox seam, decisions and traces, `--replay`, README setup and CI. Still to do: the video | ~200 LOC, 4 files |
 | 08-30 | Video, written summary, final Qodo pass. **Submit by 20:00 London.** | |
 
 **Every day also captures a run**, before anything else, because the 3-day counter cannot be
