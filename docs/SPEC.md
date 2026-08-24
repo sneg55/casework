@@ -179,9 +179,11 @@ job it exists for, and the project stops working if you remove any of them.
   `casework-sop` has to be registered with the running harness. Committing `SKILL.md` to this
   repository is not by itself enough, and registering it is part of the setup the README gives
   a judge.
-- **A model is required**, as `model.name` in FQN form. The README states which model the demo
-  was run against and which provider key a judge needs. Nothing else in the design depends on
-  the choice.
+- **A model is required**, as `model.name` in FQN form. Casework routes through the
+  **TrueFoundry LLM gateway**, which keeps the model swappable and keeps the whole stack on the
+  sponsor's surfaces. The cost is that a judge needs a gateway account, so the README opens with
+  that step and states the exact model FQN the demo was recorded against. Nothing else in the
+  design depends on the choice.
 
 **Why Code Mode is load-bearing and not decoration.** 249 feeds, each fetched with a range
 request, TLS chain inspected, first bytes examined. The responses total tens of megabytes and
