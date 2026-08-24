@@ -329,6 +329,13 @@ Draft       case_id, subject, body, recipient_kind, generated_at
 Decision    case_id, actor, action(approve|edit|reject|snooze), at, note
 ```
 
+A case has two names. `case_id` is `sha1(cause_key)[:12]`, which the API, the agent and the URL
+use. The **docket** is what a person uses: `CW-` and the case's rank by `first_seen`, then
+`case_id`. `first_seen` is written once and never updated, so a docket survives tomorrow's run,
+a reordering of the queue and a rebuild of the store from the run files. It is derived at read
+time in `queueRow`, not stored, and it is never the row's position in today's queue: that sort
+key includes `consecutive_runs`, which moves every run.
+
 `cause_key` is `host|status_class`, except on a code host, where it is
 `host/owner/repo|status_class`. One host serves many repositories and only a repository owner
 can restore a path inside one, so the host alone is the wrong unit there. Every failure has a
@@ -569,14 +576,29 @@ to the week:
 - Approve is rendered disabled with the reason next to it: the run count, the missing
   attribution, the missing channel or the missing draft, whichever is blocking.
 
-**Queue.** Cases ranked by actionable agency count. Each row: cause kind, host or repository,
-agency count, corroborating count, responsible party, confidence, day counter, state. A
-suppressed section showing what was deliberately not raised, with the reason and the catalog
+**Queue.** Cases ranked by actionable agency count. Each row: docket, cause kind, host or
+repository, agency count, corroborating count, responsible party, confidence, day counter,
+state. The docket is the row's link, so a case can be opened in a tab and pasted into a ticket.
+Above the register, four state filters (all, watching, ready, decided) and a text find over
+docket, cause, host and party.
+
+Only grouped causes are in the register. Single-feed failures are apparatus: one collapsed
+block below it, opened by a filter that matches one. Fifteen rows carrying one agency and no
+siblings repeat the same five values and bury the grouped causes the page exists to show.
+
+The totals strip carries the in-scope population only, in the order it subtracts: checked,
+healthy, failing, answered by the catalog, actionable. The declared-credential feeds are named
+in a sentence beneath it rather than added as a sixth figure, because they are filtered out
+before `checked` is counted and would not subtract.
+
+A suppressed section shows what was deliberately not raised, with the reason and the catalog
 field that justifies it. A healthy count. The screen never shows a list of feeds.
 
 **Case.** Four blocks: what the catalog asks for, what is actually there, attribution with its
 evidence, and the draft. One action bar: approve and send, edit, reject, snooze. Approve is
-disabled, with the reason shown, when the recipient channel is unresolvable.
+disabled, with the reason shown, when the recipient channel is unresolvable. Redraft and reject
+arm before they act: the first click changes the label and says what the second click will do,
+because redraft discards a revised message and reject cannot be undone from this screen.
 
 Design rule for the whole UI: **every number is clickable through to the observation that
 produced it**, including the suppressed counts, which resolve to the catalog row and field that

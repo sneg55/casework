@@ -5,6 +5,7 @@ export const API = typeof configured === 'string' ? configured : 'http://localho
 
 export interface QueueCase {
   case_id: string
+  docket: string
   cause_kind: string
   locator: string
   agency_count: number

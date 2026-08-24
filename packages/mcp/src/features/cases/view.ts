@@ -6,9 +6,11 @@ import type { Store } from '../../services/store.js'
 import { type CaseRow, type MemberRow, memberRowSchema } from '../../types/rows.js'
 import { type Evidence, evidenceFor } from '../evidence/fromRun.js'
 import { isResolvable, loadRegistry } from '../recipients/registry.js'
+import { docketNumber } from './docket.js'
 
 export interface QueueRow {
   case_id: string
+  docket: string
   cause_kind: string
   locator: string
   agency_count: number
@@ -40,6 +42,7 @@ export function queueRow(store: Store, row: CaseRow, runDate: string): QueueRow 
   const party = row.party_kind ?? row.proposed_party
   return {
     case_id: row.case_id,
+    docket: docketNumber(store.rankOf(row.first_seen, row.case_id)),
     cause_kind: row.cause_kind,
     locator: row.cause_key.split('|')[0] ?? row.cause_key,
     agency_count: row.agency_count,

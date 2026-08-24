@@ -2,5 +2,6 @@
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/register.css";
+@import "./styles/controls.css";
 @import "./styles/notice.css";
 @import "./styles/states.css";

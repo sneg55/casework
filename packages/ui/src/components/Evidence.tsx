@@ -36,28 +36,30 @@ function seen(row: EvidenceRow): string {
 export function Evidence({ rows }: { rows: EvidenceRow[] }) {
   if (rows.length === 0) return <p className="status">No observations recorded for this run.</p>
   return (
-    <table className="evidence">
-      <thead>
-        <tr>
-          <th>Kind</th>
-          <th>Feed</th>
-          <th>What was seen</th>
-          <th>Observed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, index) => (
-          <tr
-            key={`${row.kind}-${value(row.observation['feed_id'])}-${String(index)}`}
-            className={isException(row) ? `${row.kind} exception` : row.kind}
-          >
-            <td className="kind">{row.kind}</td>
-            <td className="feed">{value(row.observation['feed_id'])}</td>
-            <td className="seen">{seen(row)}</td>
-            <td className="at">{row.observed_at}</td>
+    <div className="register-scroll">
+      <table className="evidence">
+        <thead>
+          <tr>
+            <th>Kind</th>
+            <th>Feed</th>
+            <th>What was seen</th>
+            <th>Observed</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr
+              key={`${row.kind}-${value(row.observation['feed_id'])}-${String(index)}`}
+              className={isException(row) ? `${row.kind} exception` : row.kind}
+            >
+              <td className="kind">{row.kind}</td>
+              <td className="feed">{value(row.observation['feed_id'])}</td>
+              <td className="seen">{seen(row)}</td>
+              <td className="at">{row.observed_at}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

@@ -1,75 +1,18 @@
-// The register. One row is one cause, never a feed. The suppressed feeds are the footnote
-// apparatus at the foot of the page, because that is what they are: entries the catalog has
-// already annotated.
+// The register page. The grouped causes are the register; the single-feed failures are
+// apparatus, and so are the suppressions. The thesis sentence quotes the same figures the
+// strip does, in the order they subtract.
 import { useEffect, useState } from 'react'
 
-import { Lamp } from '../components/Lamp'
+import { EMPTY_FILTER, type Filter, Filters, isFiltered, matches } from '../components/Filters'
+import { Register } from '../components/Register'
+import { Singles } from '../components/Singles'
+import { Totals } from '../components/Totals'
 import { api, type QueueCase, type Queue as QueueData } from '../lib/api'
-import { docketNumber } from '../lib/docket'
-
-function Total({ n, label, lead }: { n: number; label: string; lead?: boolean }) {
-  return (
-    <div className={lead === true ? 'hi' : undefined}>
-      <span className="n">{n}</span>
-      <span className="l">{label}</span>
-    </div>
-  )
-}
-
-function Row({
-  index,
-  row,
-  onOpen,
-}: {
-  index: number
-  row: QueueCase
-  onOpen: (id: string) => void
-}) {
-  const grouped = row.cause_kind !== 'individual'
-  return (
-    <tr
-      className={grouped ? 'row exception' : 'row'}
-      tabIndex={0}
-      onClick={() => {
-        onOpen(row.case_id)
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen(row.case_id)
-        }
-      }}
-    >
-      <td className="docket">{docketNumber(index)}</td>
-      <td className="cause">{row.cause_kind.replaceAll('_', ' ')}</td>
-      <td className="where">{row.locator}</td>
-      <td className="count r">{row.agency_count}</td>
-      <td className="also r overprint">
-        {row.corroborating_count > 0 ? `+${row.corroborating_count}` : ''}
-      </td>
-      <td className="party">
-        {row.party_kind}
-        {row.recipient_resolvable ? null : <sup className="mark">†</sup>}
-      </td>
-      <td className="small r">
-        {row.confidence}
-        <span className="of">/3</span>
-      </td>
-      <td className="small r">
-        {row.consecutive_runs}
-        <span className="of">/3</span>
-      </td>
-      <td className="state">
-        <Lamp state={row.state} />
-        <span className="state-name">{row.state}</span>
-      </td>
-    </tr>
-  )
-}
 
 export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const [data, setData] = useState<QueueData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState<Filter>(EMPTY_FILTER)
 
   useEffect(() => {
     api
@@ -100,7 +43,12 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   }
 
   const run = data.run
-  const answered = run.suppressed_credential + run.suppressed_catalog
+  const isGrouped = (row: QueueCase) => row.cause_kind !== 'individual'
+  const feeds = (rows: QueueCase[]) => rows.reduce((sum, row) => sum + row.agency_count, 0)
+  const allGrouped = data.cases.filter(isGrouped)
+  const shown = data.cases.filter((row) => matches(row, filter))
+  const grouped = shown.filter(isGrouped)
+  const singles = shown.filter((row) => !isGrouped(row))
 
   return (
     <>
@@ -111,43 +59,45 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
           {data.cases.length}
         </div>
         <p>
-          A per-feed view opens {run.failing} tickets on this run. Grouped by cause, and with the{' '}
-          {answered} failures the catalog already answers taken out, the register is{' '}
-          {data.cases.length} things a person could work.
+          A per-feed view opens {run.failing} tickets on this run. The catalog already answers{' '}
+          {run.suppressed_catalog} of them. The {run.actionable} left share {data.cases.length} root
+          causes, and {allGrouped.length} of those causes account for {feeds(allGrouped)} feeds
+          between them.
         </p>
       </div>
 
-      <div className="strip">
-        <Total n={run.checked} label="checked" />
-        <Total n={run.healthy} label="healthy" />
-        <Total n={run.failing} label="failing" />
-        <Total n={answered} label="already answered" />
-        <Total n={run.actionable} label="actionable" lead />
-      </div>
+      <Totals run={run} />
 
       <h2 className="sec">The register</h2>
-      <div className="register-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Docket</th>
-              <th>Cause</th>
-              <th>Where</th>
-              <th className="r">Ag.</th>
-              <th className="r">Also</th>
-              <th>Party</th>
-              <th className="r">Conf.</th>
-              <th className="r">Runs</th>
-              <th>State</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.cases.map((row, index) => (
-              <Row key={row.case_id} index={index} row={row} onOpen={onOpen} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Filters cases={data.cases} filter={filter} onChange={setFilter} />
+
+      {shown.length === 0 ? (
+        <p className="status quiet">
+          Nothing in the register matches this filter.{' '}
+          <button
+            type="button"
+            className="retry"
+            onClick={() => {
+              setFilter(EMPTY_FILTER)
+            }}
+          >
+            Show all {data.cases.length}
+          </button>
+        </p>
+      ) : grouped.length === 0 ? (
+        <p className="status quiet">
+          No grouped cause matches. {singles.length} single-feed{' '}
+          {singles.length === 1 ? 'failure does' : 'failures do'}, below.
+        </p>
+      ) : (
+        <Register
+          rows={grouped}
+          onOpen={onOpen}
+          caption={`${String(grouped.length)} grouped causes covering ${String(feeds(grouped))} feeds`}
+        />
+      )}
+
+      <Singles rows={singles} open={isFiltered(filter)} />
 
       <div className="apparatus">
         <h2>

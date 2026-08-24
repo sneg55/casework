@@ -13,6 +13,28 @@
 .back:hover {
   color: var(--over);
 }
+.back:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 3px;
+}
+.retry {
+  background: transparent;
+  border: 1px solid var(--ink);
+  padding: 7px 15px;
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.retry:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.retry:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 2px;
+}
 
 .notice-head {
   display: flex;
@@ -29,6 +51,8 @@
   font-size: 26px;
   letter-spacing: 0.01em;
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .notice-head .subject {
   font-family: var(--narrow);
@@ -44,6 +68,15 @@
   text-align: right;
   line-height: 1.6;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+/* The docket is the name this case answers to in a ticket or out loud; the hex id below it
+   is the one the API and the agent use. */
+.notice-head .docket .number {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ink);
 }
 
 .facing {
@@ -156,6 +189,17 @@
   background: var(--over);
   color: var(--paper);
 }
+.bar button.armed {
+  border-color: var(--over);
+  color: var(--over);
+  background: rgba(180, 51, 31, 0.08);
+}
+.working {
+  margin: 8px 0 0;
+  min-height: 1.4em;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
 .bar button:disabled {
   border-color: var(--rule);
   color: var(--ink-faint);
@@ -208,6 +252,10 @@ table.evidence td.at {
   width: 190px;
   color: var(--ink-faint);
   font-size: 11.5px;
+  white-space: nowrap;
+}
+table.evidence td.seen {
+  white-space: nowrap;
 }
 table.evidence tr.catalog td.seen {
   color: var(--ink-soft);
@@ -223,4 +271,30 @@ table.evidence tr:hover {
   padding: 40px 0;
   color: var(--ink-soft);
   font-size: 13.5px;
+}
+
+/* A notice head that puts the docket in a right-hand column has nowhere to put it on a
+   phone, so the two halves stack and the docket reads left like everything else. */
+@media (max-width: 760px) {
+  .notice-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .notice-head h2 {
+    font-size: 21px;
+  }
+  .notice-head .docket {
+    text-align: left;
+    white-space: normal;
+  }
+  .draft {
+    padding: 18px 16px 20px;
+  }
+  .bar button {
+    flex: 1 1 auto;
+  }
+  .blocked {
+    flex-basis: 100%;
+  }
 }

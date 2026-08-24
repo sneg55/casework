@@ -55,6 +55,7 @@
 /* ── totals strip ─────────────────────────────────────────────────────── */
 .strip {
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--rule);
 }
 .strip div {
@@ -100,7 +101,7 @@ table {
   margin-top: 10px;
 }
 th {
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -134,9 +135,23 @@ td.docket {
   font-family: var(--narrow);
   font-size: 12px;
   letter-spacing: 0.08em;
-  color: var(--ink-faint);
-  width: 82px;
+  width: 88px;
   white-space: nowrap;
+}
+/* The docket is the row's real link, so it keeps the docket's own colour rather than the
+   page link colour, and earns its underline on hover. */
+td.docket a {
+  color: var(--ink-faint);
+  border-bottom: 1px solid transparent;
+}
+tbody tr.row:hover td.docket a,
+td.docket a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--rule);
+}
+td.docket a:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 2px;
 }
 td.cause {
   font-weight: 500;
@@ -185,7 +200,7 @@ td.small {
   width: 62px;
 }
 .of {
-  color: var(--rule);
+  color: var(--ink-faint);
   font-size: 11px;
 }
 td.state {
@@ -261,6 +276,20 @@ td.state {
   font-size: 14px;
   margin-right: 4px;
 }
+/* The credential feeds sit outside the strip's arithmetic, so they are said in words
+   rather than added as a sixth figure that would not subtract. */
+.aside {
+  margin: 10px 0 0;
+  max-width: 74ch;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.status.quiet {
+  padding: 22px 0 4px;
+  font-size: 13px;
+}
+
 .colophon {
   margin-top: 16px;
   font-size: 11px;
@@ -269,27 +298,37 @@ td.state {
 }
 
 /* A nine-column register does not fold into a phone, and squashing it would cost the
-   comparison the columns exist for. It scrolls, and the columns a phone can spare go first. */
+   comparison the columns exist for. It scrolls, and says so: the inner shadows appear only
+   while there is a column off the edge. */
 .register-scroll {
   overflow-x: auto;
   margin: 0 -4px;
   padding: 0 4px;
+  background-image:
+    linear-gradient(to right, var(--paper), rgba(233, 230, 223, 0)),
+    linear-gradient(to left, var(--paper), rgba(233, 230, 223, 0)),
+    linear-gradient(to right, rgba(22, 22, 26, 0.17), rgba(22, 22, 26, 0)),
+    linear-gradient(to left, rgba(22, 22, 26, 0.17), rgba(22, 22, 26, 0));
+  background-position:
+    left center,
+    right center,
+    left center,
+    right center;
+  background-repeat: no-repeat;
+  background-size:
+    26px 100%,
+    26px 100%,
+    13px 100%,
+    13px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 @media (max-width: 760px) {
   .register-scroll table {
-    min-width: 620px;
+    min-width: 660px;
   }
-  td.docket,
-  th:first-child {
-    display: none;
-  }
-  .state-name {
-    display: none;
-  }
-  td.state,
-  th:last-child {
-    width: 24px;
+  .register-scroll table.evidence {
+    min-width: 540px;
   }
 }
 

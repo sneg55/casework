@@ -1,0 +1,180 @@
+/* The register's control line and the single-feed apparatus. Both are timetable furniture:
+   a tab strip ruled into the page, and a footnote block that opens in place. */
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-top: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.segments {
+  display: flex;
+  flex-wrap: wrap;
+}
+.segments button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin: 0 20px -1px 0;
+  padding: 6px 0 7px;
+  font-family: var(--narrow);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.segments button:hover {
+  color: var(--ink);
+}
+.segments button[aria-pressed="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--over);
+}
+.segments button:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 2px;
+}
+.segments .n {
+  margin-left: 7px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+.find {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding-bottom: 4px;
+}
+.find > span {
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.find input {
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 2px 2px 4px;
+  min-width: 230px;
+}
+.find input::placeholder {
+  color: var(--ink-faint);
+}
+.find input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--over);
+  box-shadow: 0 1px 0 var(--over);
+}
+
+/* ── single-feed failures, as apparatus ───────────────────────────────── */
+.singles {
+  margin-top: 24px;
+  border-top: 1px solid var(--rule);
+}
+.singles summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 0;
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.singles summary::-webkit-details-marker {
+  display: none;
+}
+.singles summary::before {
+  content: "\25B8";
+  color: var(--over);
+  font-size: 11px;
+}
+.singles[open] summary::before {
+  content: "\25BE";
+}
+.singles summary:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 2px;
+}
+.singles summary b {
+  font-size: 15px;
+  color: var(--ink);
+  letter-spacing: 0;
+}
+
+.singles ul {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  columns: 2;
+  column-gap: 36px;
+}
+.singles li {
+  break-inside: avoid;
+}
+.singles a {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--rule-faint);
+  color: var(--ink);
+}
+.singles a:hover {
+  background: rgba(180, 51, 31, 0.06);
+  border-bottom-color: var(--rule);
+}
+.singles a:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: -2px;
+}
+.singles .docket {
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.singles .where {
+  font-family: var(--narrow);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.singles .party {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.singles .state {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .find input {
+    min-width: 0;
+    width: 100%;
+  }
+  .singles ul {
+    columns: 1;
+  }
+}

@@ -3,10 +3,19 @@
 // this app owns: the gate lives in the agent, and the reason it is closed is stated.
 import { useCallback, useEffect, useState } from 'react'
 
+import { ActionBar } from '../components/ActionBar'
 import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
 import { api, type CaseDetail } from '../lib/api'
-import { blockingReason, RUNS_REQUIRED } from '../lib/blocking'
+import { words } from '../lib/words'
+
+function Back({ onBack }: { onBack: () => void }) {
+  return (
+    <button type="button" className="back" onClick={onBack}>
+      ← the register
+    </button>
+  )
+}
 
 function Facing({ detail }: { detail: CaseDetail }) {
   const members = detail.members.filter((m) => m.role === 'member')
@@ -33,7 +42,7 @@ function Facing({ detail }: { detail: CaseDetail }) {
         <h3>What is actually there</h3>
         <dl>
           <dt>Response</dt>
-          <dd className="mono">{detail.status_class}</dd>
+          <dd>{words(detail.status_class)}</dd>
           <dt>Failing</dt>
           <dd>
             {detail.consecutive_runs} consecutive {detail.consecutive_runs === 1 ? 'run' : 'runs'},{' '}
@@ -43,7 +52,7 @@ function Facing({ detail }: { detail: CaseDetail }) {
           </dd>
           <dt>Party</dt>
           <dd>
-            {detail.party_kind}
+            {words(detail.party_kind)}
             {detail.recipient_resolvable ? ', channel on file' : ', no channel on file'} ·
             confidence {detail.confidence} of 3
           </dd>
@@ -67,42 +76,58 @@ function Facing({ detail }: { detail: CaseDetail }) {
 
 export function Case({ caseId, onBack }: { caseId: string; onBack: () => void }) {
   const [detail, setDetail] = useState<CaseDetail | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(() => {
     api
       .case(caseId)
-      .then(setDetail)
-      .catch(() => {
-        setDetail(null)
+      .then((next) => {
+        setDetail(next)
+        setError(null)
+      })
+      .catch((e: unknown) => {
+        setError(String(e))
       })
   }, [caseId])
 
   useEffect(load, [load])
 
-  if (detail === null) return <p className="status">Reading the notice…</p>
-
-  const blocked = blockingReason(detail)
-  const act = (fn: () => Promise<unknown>) => () => {
-    setBusy(true)
-    void fn()
-      .then(load)
-      .finally(() => {
-        setBusy(false)
-      })
+  if (error !== null) {
+    return (
+      <>
+        <Back onBack={onBack} />
+        <p className="status">
+          Case {caseId} did not load. Either no case has that id in the current run, or the read API
+          is not answering: start it with <code>npm run api -w @casework/mcp</code> and try again.
+          <br />
+          {error}
+        </p>
+        <button type="button" className="retry" onClick={load}>
+          Try again
+        </button>
+      </>
+    )
+  }
+  if (detail === null) {
+    return (
+      <>
+        <Back onBack={onBack} />
+        <p className="status">Reading the notice…</p>
+      </>
+    )
   }
 
   return (
     <>
-      <button type="button" className="back" onClick={onBack}>
-        ← the register
-      </button>
+      <Back onBack={onBack} />
 
       <div className="notice-head">
         <h2>
-          {detail.cause_kind.replaceAll('_', ' ')} <span className="subject">{detail.locator}</span>
+          {words(detail.cause_kind)} <span className="subject">{detail.locator}</span>
         </h2>
         <div className="docket">
+          <span className="number">{detail.docket}</span>
+          <br />
           case {detail.case_id}
           <br />
           <Lamp state={detail.state} />
@@ -130,37 +155,7 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
         )}
       </div>
 
-      <div className="bar">
-        <button
-          type="button"
-          className="primary"
-          disabled={busy}
-          onClick={act(async () => await api.draft(caseId))}
-        >
-          {detail.draft === null ? 'Draft the message' : 'Redraft from evidence'}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={act(async () => await api.decide(caseId, 'snooze'))}
-        >
-          Snooze
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={act(async () => await api.decide(caseId, 'reject'))}
-        >
-          Reject
-        </button>
-        <button type="button" disabled title="Approval is a gated tool call in the agent">
-          Approve and send
-        </button>
-        <span className={blocked === null ? 'blocked clear' : 'blocked'}>
-          {blocked ??
-            `past ${String(RUNS_REQUIRED)} runs and drafted: ask the agent to send, and approve the gate prompt`}
-        </span>
-      </div>
+      <ActionBar detail={detail} onDone={load} />
 
       <p className="ledger">
         {detail.decisions.length === 0 ? (

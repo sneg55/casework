@@ -56,6 +56,11 @@ export function openStore(dbPath: string) {
       suppressed_credential, suppressed_catalog, actionable, built_at)
     VALUES (@run_date, @prior, @checked, @healthy, @failing, @credential, @catalog,
             @actionable, @built_at)`)
+  // first_seen is written once and never updated, so this rank is stable across runs and
+  // survives a rebuild of the store from the run files.
+  const rank = db.prepare<[string, string, string], { n: number }>(`
+    SELECT COUNT(*) AS n FROM cases
+    WHERE first_seen < ? OR (first_seen = ? AND case_id <= ?)`)
   const resolveMissing = db.prepare(`
     UPDATE cases SET state = 'resolved', consecutive_runs = 0, last_seen = ?
     WHERE state IN ('watching', 'ready') AND case_id NOT IN (SELECT value FROM json_each(?))`)
@@ -118,6 +123,9 @@ export function openStore(dbPath: string) {
       return persist(doc, builtAt)
     },
     getCase: readCase,
+    rankOf(firstSeen: string, caseId: string): number {
+      return rank.get(firstSeen, firstSeen, caseId)?.n ?? 0
+    },
     listCases(state?: string): CaseRow[] {
       const sql =
         'SELECT * FROM cases' +
