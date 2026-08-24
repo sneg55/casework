@@ -7,7 +7,8 @@ import { Case } from './routes/Case'
 import { Queue } from './routes/Queue'
 
 function caseFromHash(): string | null {
-  const match = /^#\/cases\/([0-9a-f]{12})$/.exec(window.location.hash)
+  // Tolerates a query or trailing junk after the id: a pasted link should still open.
+  const match = /^#\/cases\/([0-9a-f]{12})\b/.exec(window.location.hash)
   return match?.[1] ?? null
 }
 
@@ -32,11 +33,15 @@ export function App() {
   }
 
   return (
-    <div className="shell">
+    <div className="page">
       <header className="masthead">
         <h1>Casework</h1>
-        <span className="sub">
-          feed failures, grouped by cause and addressed to whoever can fix them
+        <span className="edition">
+          California GTFS · public Mobility Database
+          <br />
+          <span className="strapline">
+            feed failures, grouped by cause and addressed to whoever can fix them
+          </span>
         </span>
       </header>
       {caseId === null ? <Queue onOpen={open} /> : <Case caseId={caseId} onBack={back} />}

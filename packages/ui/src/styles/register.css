@@ -1,0 +1,312 @@
+/* ── masthead ─────────────────────────────────────────────────────────── */
+.masthead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  border-bottom: 2.5px solid var(--ink);
+  padding-bottom: 8px;
+}
+.masthead h1 {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 31px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.masthead .edition {
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: right;
+  line-height: 1.55;
+}
+
+/* ── the collapse ─────────────────────────────────────────────────────── */
+.thesis {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.thesis .figure {
+  font-family: var(--narrow);
+  font-weight: 700;
+  font-size: 58px;
+  line-height: 0.92;
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+.thesis .figure .to {
+  color: var(--over);
+  padding: 0 10px;
+}
+.thesis p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13.5px;
+  color: var(--ink-soft);
+}
+
+/* ── totals strip ─────────────────────────────────────────────────────── */
+.strip {
+  display: flex;
+  border-bottom: 1px solid var(--rule);
+}
+.strip div {
+  padding: 12px 22px 12px 0;
+  margin-right: 22px;
+  border-right: 1px solid var(--rule);
+}
+.strip div:last-child {
+  border-right: none;
+}
+.strip .n {
+  font-family: var(--narrow);
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1;
+  display: block;
+}
+.strip .l {
+  font-size: 10.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.strip .hi .n {
+  color: var(--over);
+}
+
+/* ── section heads ────────────────────────────────────────────────────── */
+.sec {
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 30px 0 0;
+}
+
+/* ── the register ─────────────────────────────────────────────────────── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+th {
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: left;
+  font-weight: 600;
+  padding: 0 10px 6px 0;
+  border-bottom: 1px solid var(--ink);
+  white-space: nowrap;
+}
+td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--rule-faint);
+  font-size: 13px;
+}
+th.r,
+td.r {
+  text-align: right;
+}
+tbody tr.row {
+  cursor: pointer;
+}
+tbody tr.row:hover {
+  background: rgba(180, 51, 31, 0.06);
+}
+tbody tr.row:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: -2px;
+}
+
+td.docket {
+  font-family: var(--narrow);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  width: 82px;
+  white-space: nowrap;
+}
+td.cause {
+  font-weight: 500;
+  width: 190px;
+}
+tr.exception td.cause {
+  color: var(--over);
+  font-weight: 600;
+}
+td.where {
+  font-family: var(--narrow);
+  color: #31302c;
+}
+/* Vertical hairlines fence the figures from the prose, the way a timetable fences its
+   time columns from its station names. */
+th:nth-child(4),
+td.count {
+  width: 54px;
+  border-left: 1px solid var(--rule-faint);
+  padding-left: 10px;
+}
+th:nth-child(9),
+td.state {
+  border-left: 1px solid var(--rule-faint);
+  padding-left: 12px;
+}
+td.also {
+  width: 44px;
+  color: var(--over);
+}
+td.party {
+  color: var(--ink-soft);
+  width: 104px;
+  white-space: nowrap;
+}
+.mark {
+  color: var(--over);
+  font-size: 11px;
+  margin-left: 2px;
+  top: -0.4em;
+}
+.apparatus .mark-note b {
+  color: var(--over);
+}
+td.small {
+  width: 62px;
+}
+.of {
+  color: var(--rule);
+  font-size: 11px;
+}
+td.state {
+  width: 104px;
+  white-space: nowrap;
+}
+
+/* the lamp: state, at a glance, in the panel sense */
+.lamp {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: transparent;
+  border: 1.5px solid var(--lamp-off);
+}
+.lamp.ready {
+  background: var(--over);
+  border-color: var(--over);
+  box-shadow: 0 0 0 3px rgba(180, 51, 31, 0.16);
+}
+.lamp.approved,
+.lamp.rejected {
+  background: var(--ink-faint);
+  border-color: var(--ink-faint);
+}
+.lamp.snoozed {
+  background: linear-gradient(90deg, var(--ink-faint) 50%, transparent 50%);
+}
+.state-name {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ── footnote apparatus ───────────────────────────────────────────────── */
+.apparatus {
+  margin-top: 26px;
+  border-top: 2px solid var(--ink);
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 26px;
+}
+.apparatus h2 {
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.apparatus ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  columns: 2;
+  column-gap: 34px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.apparatus li {
+  margin-bottom: 5px;
+  break-inside: avoid;
+}
+.apparatus b {
+  color: var(--ink);
+  font-family: var(--narrow);
+  font-size: 14px;
+  margin-right: 4px;
+}
+.colophon {
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.03em;
+}
+
+/* A nine-column register does not fold into a phone, and squashing it would cost the
+   comparison the columns exist for. It scrolls, and the columns a phone can spare go first. */
+.register-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
+
+@media (max-width: 760px) {
+  .register-scroll table {
+    min-width: 620px;
+  }
+  td.docket,
+  th:first-child {
+    display: none;
+  }
+  .state-name {
+    display: none;
+  }
+  td.state,
+  th:last-child {
+    width: 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .masthead .edition {
+    text-align: left;
+  }
+  .masthead .edition br,
+  .masthead .edition .strapline {
+    display: none;
+  }
+  .thesis .figure {
+    font-size: 46px;
+  }
+}

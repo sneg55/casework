@@ -18,6 +18,7 @@
       "!**/coverage/**",
       "!**/node_modules/**",
       "!data/**",
+      "!.impeccable/**",
       "!.venv/**"
     ]
   },

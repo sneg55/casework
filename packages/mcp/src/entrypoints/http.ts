@@ -18,6 +18,9 @@ function json(res: ServerResponse, status: number, payload: unknown): void {
   const body = JSON.stringify(payload)
   res.writeHead(status, {
     'Content-Type': 'application/json',
+    // A queue read must never come from a cache: the run, the state and the draft change
+    // under the reader while the page is open.
+    'Cache-Control': 'no-store',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',

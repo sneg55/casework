@@ -1,18 +1,68 @@
-// The case. Four blocks: what the catalog asks for, what is actually there, attribution with
-// its evidence, and the draft. Approve is not a button this app can press: the gate lives in
-// the agent, and the reason it is disabled is stated rather than implied.
+// The notice. Facing columns for what the catalog asks for and what is actually there, the
+// attribution with the evidence it rests on, then the message itself. Approve is not a button
+// this app owns: the gate lives in the agent, and the reason it is closed is stated.
 import { useCallback, useEffect, useState } from 'react'
-import { Evidence } from '../components/Evidence'
-import { api, type CaseDetail } from '../lib/api'
 
-function why(detail: CaseDetail): string | null {
-  if (detail.consecutive_runs < 3) {
-    return `the three-run rule has not fired: ${detail.consecutive_runs} of 3 consecutive runs`
-  }
-  if (detail.confidence === 0) return 'unattributed, so there is no party to write to'
-  if (!detail.recipient_resolvable) return `no channel on file for a ${detail.party_kind}`
-  if (detail.draft === null) return 'no draft yet'
-  return null
+import { Evidence } from '../components/Evidence'
+import { Lamp } from '../components/Lamp'
+import { api, type CaseDetail } from '../lib/api'
+import { blockingReason, RUNS_REQUIRED } from '../lib/blocking'
+
+function Facing({ detail }: { detail: CaseDetail }) {
+  const members = detail.members.filter((m) => m.role === 'member')
+  const corroborating = detail.members.filter((m) => m.role === 'corroborating')
+  const finding = detail.attribution.at(0)
+  return (
+    <div className="facing">
+      <section>
+        <h3>What the catalog asks for</h3>
+        <dl>
+          <dt>Entries</dt>
+          <dd>{members.length} feeds point here and are expected to serve a zip archive</dd>
+          <dt>Cause key</dt>
+          <dd className="mono">{detail.cause_key}</dd>
+          <dt>Already answered</dt>
+          <dd>
+            {corroborating.length === 0
+              ? 'no sibling entries'
+              : `${corroborating.length} siblings the catalog has retired or re-pointed`}
+          </dd>
+        </dl>
+      </section>
+      <section>
+        <h3>What is actually there</h3>
+        <dl>
+          <dt>Response</dt>
+          <dd className="mono">{detail.status_class}</dd>
+          <dt>Failing</dt>
+          <dd>
+            {detail.consecutive_runs} consecutive {detail.consecutive_runs === 1 ? 'run' : 'runs'},{' '}
+            {detail.runs_needed === 0
+              ? 'past the rule'
+              : `${detail.runs_needed} more before anything is drafted`}
+          </dd>
+          <dt>Party</dt>
+          <dd>
+            {detail.party_kind}
+            {detail.recipient_resolvable ? ', channel on file' : ', no channel on file'} ·
+            confidence {detail.confidence} of 3
+          </dd>
+        </dl>
+        {finding === undefined ? (
+          <p className="finding">Not investigated yet. Ask the agent to attribute this case.</p>
+        ) : (
+          <p className="finding overprint">
+            {finding.kind === 'repo' ? 'Repository read: ' : 'Checked: '}
+            {finding.source_url === null ? null : (
+              <a href={finding.source_url} target="_blank" rel="noreferrer">
+                {finding.source_url}
+              </a>
+            )}
+          </p>
+        )}
+      </section>
+    </div>
+  )
 }
 
 export function Case({ caseId, onBack }: { caseId: string; onBack: () => void }) {
@@ -30,12 +80,9 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
 
   useEffect(load, [load])
 
-  if (detail === null) return <p className="note">Reading the case…</p>
+  if (detail === null) return <p className="status">Reading the notice…</p>
 
-  const members = detail.members.filter((m) => m.role === 'member')
-  const corroborating = detail.members.filter((m) => m.role === 'corroborating')
-  const blocked = why(detail)
-
+  const blocked = blockingReason(detail)
   const act = (fn: () => Promise<unknown>) => () => {
     setBusy(true)
     void fn()
@@ -48,106 +95,48 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
   return (
     <>
       <button type="button" className="back" onClick={onBack}>
-        ← the queue
+        ← the register
       </button>
 
-      <h2 style={{ margin: '12px 0 4px', fontSize: 18 }}>
-        {detail.cause_kind.replaceAll('_', ' ')} on <span className="mono">{detail.locator}</span>
-      </h2>
-      <p className="note">
-        Case {detail.case_id}. First seen {detail.first_seen}, last seen {detail.last_seen}.{' '}
-        <span className={`pill ${detail.state}`}>{detail.state}</span>
-      </p>
-
-      <div className="blocks">
-        <div className="block">
-          <h3>What the catalog asks for</h3>
-          <dl>
-            <dt>Feeds</dt>
-            <dd>{members.length} entries point here and are expected to serve a zip archive</dd>
-            <dt>Cause key</dt>
-            <dd className="mono">{detail.cause_key}</dd>
-            <dt>Already retired</dt>
-            <dd>
-              {corroborating.length === 0
-                ? 'none'
-                : `${corroborating.length} sibling entries the catalog has already answered`}
-            </dd>
-          </dl>
-        </div>
-
-        <div className="block">
-          <h3>What is actually there</h3>
-          <dl>
-            <dt>Response</dt>
-            <dd className="mono">{detail.status_class}</dd>
-            <dt>Runs failing</dt>
-            <dd>
-              {detail.consecutive_runs} consecutive, {detail.runs_needed} more before anything is
-              drafted
-            </dd>
-            <dt>Observations</dt>
-            <dd>{detail.evidence.length} recorded for this run</dd>
-          </dl>
-        </div>
-
-        <div className="block">
-          <h3>Attribution</h3>
-          <dl>
-            <dt>Party</dt>
-            <dd>{detail.party_kind}</dd>
-            <dt>Channel</dt>
-            <dd>{detail.recipient_resolvable ? 'on file' : 'none on file'}</dd>
-            <dt>Confidence</dt>
-            <dd>{detail.confidence} of 3, counted</dd>
-          </dl>
-          {detail.attribution.map((row) => (
-            <p className="note" key={row.kind + row.observation.slice(0, 24)}>
-              <strong>{row.kind}</strong>{' '}
-              {row.source_url === null ? null : (
-                <a href={row.source_url} target="_blank" rel="noreferrer">
-                  {row.source_url}
-                </a>
-              )}
-            </p>
-          ))}
-        </div>
-
-        <div className="block">
-          <h3>Decisions</h3>
-          {detail.decisions.length === 0 ? (
-            <p className="note">Nobody has acted on this case.</p>
-          ) : (
-            <dl>
-              {detail.decisions.map((d) => (
-                <>
-                  <dt key={`${d.at}-k`}>{d.action}</dt>
-                  <dd key={`${d.at}-v`}>
-                    {d.actor}, {d.at}
-                  </dd>
-                </>
-              ))}
-            </dl>
-          )}
+      <div className="notice-head">
+        <h2>
+          {detail.cause_kind.replaceAll('_', ' ')} <span className="subject">{detail.locator}</span>
+        </h2>
+        <div className="docket">
+          case {detail.case_id}
+          <br />
+          <Lamp state={detail.state} />
+          {detail.state} · seen {detail.first_seen} to {detail.last_seen}
         </div>
       </div>
 
-      <div className="section-title">Every observation behind this case</div>
+      <Facing detail={detail} />
+
+      <h2 className="sec">Every observation behind this case</h2>
       <Evidence rows={detail.evidence} />
 
-      <div className="section-title">The draft</div>
-      {detail.draft === null ? (
-        <p className="note">No draft yet.</p>
-      ) : (
-        <pre className="draft">
-          {detail.draft.subject}
-          {'\n\n'}
-          {detail.draft.body}
-        </pre>
-      )}
+      <h2 className="sec">The message</h2>
+      <div className="draft overprint-late">
+        {detail.draft === null ? (
+          <p className="none">
+            No message drafted yet. Drafting composes it from the observations above; it invents
+            nothing.
+          </p>
+        ) : (
+          <>
+            <p className="subject-line">{detail.draft.subject}</p>
+            <pre>{detail.draft.body}</pre>
+          </>
+        )}
+      </div>
 
       <div className="bar">
-        <button type="button" disabled={busy} onClick={act(async () => await api.draft(caseId))}>
+        <button
+          type="button"
+          className="primary"
+          disabled={busy}
+          onClick={act(async () => await api.draft(caseId))}
+        >
           {detail.draft === null ? 'Draft the message' : 'Redraft from evidence'}
         </button>
         <button
@@ -164,16 +153,29 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
         >
           Reject
         </button>
-        <button type="button" disabled title="Approval happens in the agent, behind the gate">
+        <button type="button" disabled title="Approval is a gated tool call in the agent">
           Approve and send
         </button>
-        <span className="why">
-          {blocked ?? 'ready: ask the agent to send, and approve the gate prompt'}
+        <span className={blocked === null ? 'blocked clear' : 'blocked'}>
+          {blocked ??
+            `past ${String(RUNS_REQUIRED)} runs and drafted: ask the agent to send, and approve the gate prompt`}
         </span>
       </div>
-      <p className="note">
-        This screen cannot send. Approval is a gated tool call in the agent, so the only way a
-        message leaves is a human approving that call.
+
+      <p className="ledger">
+        {detail.decisions.length === 0 ? (
+          <span>Nobody has acted on this case.</span>
+        ) : (
+          detail.decisions.map((decision) => (
+            <span key={decision.at}>
+              {decision.action} by {decision.actor}, {decision.at}
+            </span>
+          ))
+        )}
+        <span>
+          This screen cannot send. The only way a message leaves is a human approving the agent's
+          gated call.
+        </span>
       </p>
     </>
   )

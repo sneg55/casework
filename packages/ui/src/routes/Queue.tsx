@@ -1,15 +1,69 @@
-// The queue. One row is one cause, never a feed, and every number is clickable through to
-// the observation that produced it.
+// The register. One row is one cause, never a feed. The suppressed feeds are the footnote
+// apparatus at the foot of the page, because that is what they are: entries the catalog has
+// already annotated.
 import { useEffect, useState } from 'react'
 
-import { api, type Queue as QueueData } from '../lib/api'
+import { Lamp } from '../components/Lamp'
+import { api, type QueueCase, type Queue as QueueData } from '../lib/api'
+import { docketNumber } from '../lib/docket'
 
-function Count({ n, label, lead }: { n: number; label: string; lead?: boolean }) {
+function Total({ n, label, lead }: { n: number; label: string; lead?: boolean }) {
   return (
-    <div className={lead === true ? 'count lead' : 'count'}>
-      <div className="n">{n}</div>
-      <div className="l">{label}</div>
+    <div className={lead === true ? 'hi' : undefined}>
+      <span className="n">{n}</span>
+      <span className="l">{label}</span>
     </div>
+  )
+}
+
+function Row({
+  index,
+  row,
+  onOpen,
+}: {
+  index: number
+  row: QueueCase
+  onOpen: (id: string) => void
+}) {
+  const grouped = row.cause_kind !== 'individual'
+  return (
+    <tr
+      className={grouped ? 'row exception' : 'row'}
+      tabIndex={0}
+      onClick={() => {
+        onOpen(row.case_id)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onOpen(row.case_id)
+        }
+      }}
+    >
+      <td className="docket">{docketNumber(index)}</td>
+      <td className="cause">{row.cause_kind.replaceAll('_', ' ')}</td>
+      <td className="where">{row.locator}</td>
+      <td className="count r">{row.agency_count}</td>
+      <td className="also r overprint">
+        {row.corroborating_count > 0 ? `+${row.corroborating_count}` : ''}
+      </td>
+      <td className="party">
+        {row.party_kind}
+        {row.recipient_resolvable ? null : <sup className="mark">†</sup>}
+      </td>
+      <td className="small r">
+        {row.confidence}
+        <span className="of">/3</span>
+      </td>
+      <td className="small r">
+        {row.consecutive_runs}
+        <span className="of">/3</span>
+      </td>
+      <td className="state">
+        <Lamp state={row.state} />
+        <span className="state-name">{row.state}</span>
+      </td>
+    </tr>
   )
 }
 
@@ -26,82 +80,99 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
       })
   }, [])
 
-  if (error !== null) return <p className="note">The read API is not answering: {error}</p>
-  if (data === null) return <p className="note">Reading the queue…</p>
-  if (data.run === null) return <p className="note">No captured run yet. Run the probe first.</p>
+  if (error !== null) {
+    return (
+      <p className="status">
+        The read API is not answering. Start it with <code>npm run api -w @casework/mcp</code>.
+        <br />
+        {error}
+      </p>
+    )
+  }
+  if (data === null) return <p className="status">Reading the register…</p>
+  if (data.run === null) {
+    return (
+      <p className="status">
+        No run has been captured yet. Run <code>python3 scripts/probe_catalog.py</code>, then{' '}
+        <code>npm run build:cases -w @casework/mcp</code>.
+      </p>
+    )
+  }
 
   const run = data.run
+  const answered = run.suppressed_credential + run.suppressed_catalog
+
   return (
     <>
-      <div className="counts">
-        <Count n={run.checked} label="checked" />
-        <Count n={run.healthy} label="healthy" />
-        <Count n={run.failing} label="failing" />
-        <Count n={run.suppressed_credential + run.suppressed_catalog} label="answered already" />
-        <Count n={run.actionable} label="actionable" />
-        <Count n={data.cases.length} label="cases" lead />
+      <div className="thesis">
+        <div className="figure">
+          {run.failing}
+          <span className="to overprint">→</span>
+          {data.cases.length}
+        </div>
+        <p>
+          A per-feed view opens {run.failing} tickets on this run. Grouped by cause, and with the{' '}
+          {answered} failures the catalog already answers taken out, the register is{' '}
+          {data.cases.length} things a person could work.
+        </p>
       </div>
 
-      <p className="note">
-        A per-feed view opens {run.failing} tickets on this run. The queue below has{' '}
-        {data.cases.length} rows, and {run.suppressed_credential + run.suppressed_catalog} of the
-        failures are things the catalog already answers.
-      </p>
+      <div className="strip">
+        <Total n={run.checked} label="checked" />
+        <Total n={run.healthy} label="healthy" />
+        <Total n={run.failing} label="failing" />
+        <Total n={answered} label="already answered" />
+        <Total n={run.actionable} label="actionable" lead />
+      </div>
 
-      <div className="section-title">Cases</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Cause</th>
-            <th>Where</th>
-            <th>Agencies</th>
-            <th>Also</th>
-            <th>Party</th>
-            <th>Confidence</th>
-            <th>Runs</th>
-            <th>State</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.cases.map((c) => (
-            <tr
-              key={c.case_id}
-              onClick={() => {
-                onOpen(c.case_id)
-              }}
-            >
-              <td>{c.cause_kind.replaceAll('_', ' ')}</td>
-              <td className="mono">{c.locator}</td>
-              <td className="n">{c.agency_count}</td>
-              <td className="n">{c.corroborating_count > 0 ? `+${c.corroborating_count}` : ''}</td>
-              <td>
-                {c.party_kind}
-                {c.recipient_resolvable ? '' : ' (no channel)'}
-              </td>
-              <td className="n">{c.confidence}/3</td>
-              <td className="n">{c.consecutive_runs}/3</td>
-              <td>
-                <span className={`pill ${c.state}`}>{c.state}</span>
-              </td>
+      <h2 className="sec">The register</h2>
+      <div className="register-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Docket</th>
+              <th>Cause</th>
+              <th>Where</th>
+              <th className="r">Ag.</th>
+              <th className="r">Also</th>
+              <th>Party</th>
+              <th className="r">Conf.</th>
+              <th className="r">Runs</th>
+              <th>State</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.cases.map((row, index) => (
+              <Row key={row.case_id} index={index} row={row} onOpen={onOpen} />
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <div className="section-title">Deliberately not raised</div>
-      <ul className="suppressed">
-        {data.suppressed.map((s) => (
-          <li key={s.reason}>
-            <strong>{s.n}</strong> {s.reason}
+      <div className="apparatus">
+        <h2>
+          Not raised,
+          <br />
+          and why
+        </h2>
+        <ul>
+          {data.suppressed.map((entry) => (
+            <li key={entry.reason}>
+              <b>{entry.n}</b>
+              {entry.reason}
+            </li>
+          ))}
+          <li>
+            <b>{run.healthy}</b>feeds are serving a zip archive and produce nothing at all
           </li>
-        ))}
-        <li>
-          <strong>{run.healthy}</strong> feeds are serving a zip archive and produce nothing at all
-        </li>
-      </ul>
-      <p className="note">
+          <li className="mark-note">
+            <b>†</b>no channel on file for that party, so the case cannot be approved
+          </li>
+        </ul>
+      </div>
+      <p className="colophon">
         Run {run.run_date}. Runs on file: {data.runs_on_file.join(', ')}. The three-run rule counts
-        files, so a day with no run does not advance a counter.
+        run files, not calendar days, so a day with no run does not advance a counter.
       </p>
     </>
   )

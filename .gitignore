@@ -23,3 +23,6 @@ node_modules/
 
 # derived from the run files, rebuilt by cases.build
 data/casework.sqlite*
+
+# impeccable scratch state, not part of the project
+.impeccable/

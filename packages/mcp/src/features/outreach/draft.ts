@@ -39,8 +39,8 @@ function observedLines(store: Store, view: CaseView, runDate: string): string[] 
   const members = view.members.filter((m) => m.role === 'member').map((m) => m.feed_id)
   return detectionsFor(runDate, members).map(
     (d) =>
-      `  ${d.provider}: ${d.url} returned ${d.http_code ?? 'no response'}` +
-      `${d.content_type === '' ? '' : ` (${d.content_type})`}, observed ${d.observed_at}`,
+      `  ${d.provider} — ${String(d.http_code ?? 'no response')}` +
+      `${d.content_type === '' ? '' : ` ${d.content_type}`} — ${d.observed_at}\n    ${d.url}`,
   )
 }
 
@@ -54,8 +54,7 @@ function repositoryBody(store: Store, view: CaseView, observed: string[]): strin
       `${facts.data.paths_present.join(', ')}.`
     : 'The repository was not inspected.'
   return [
-    `The public feed catalog points ${view.agency_count} agency feeds at paths inside your`,
-    `repository, and all of them return 404 today.`,
+    `The public feed catalog points ${view.agency_count} agency feeds at paths inside your repository, and all of them return 404 today.`,
     '',
     detail,
     '',
@@ -66,16 +65,13 @@ function repositoryBody(store: Store, view: CaseView, observed: string[]): strin
     '  1. Did those directories move, and if so where to?',
     '  2. Or should the catalog stop pointing at this repository for them?',
     '',
-    'Nobody is asking you to host anything you have stopped hosting. The catalog entries',
-    'are what need correcting, and we would rather correct them than leave the agencies dark.',
+    'Nobody is asking you to host anything you have stopped hosting. The catalog entries are what need correcting, and we would rather correct them than leave the agencies dark.',
   ].join('\n')
 }
 
 function hostBody(view: CaseView, observed: string[]): string {
   return [
-    `${view.agency_count} feed URLs on ${view.locator} end in .zip and return HTML rather than`,
-    'a zip archive. A status check passes; a content check does not, so anything consuming',
-    'these feeds sees a successful response carrying the wrong body.',
+    `${view.agency_count} feed URLs on ${view.locator} end in .zip and return HTML rather than a zip archive. A status check passes; a content check does not, so anything consuming these feeds sees a successful response carrying the wrong body.`,
     '',
     'Observed:',
     ...observed,
@@ -86,10 +82,7 @@ function hostBody(view: CaseView, observed: string[]): string {
 
 function catalogBody(view: CaseView, observed: string[]): string {
   return [
-    `${view.locator} is retired. Most of its entries in the catalog are already marked`,
-    'deprecated with a replacement recorded, which is the correct outcome and is why this is',
-    `not addressed to any agency. ${view.agency_count} entry or entries still point at it with`,
-    'no replacement recorded.',
+    `${view.locator} is retired. Most of its entries in the catalog are already marked deprecated with a replacement recorded, which is the correct outcome and is why this is not addressed to any agency. ${view.agency_count} entry or entries still point at it with no replacement recorded.`,
     '',
     'Observed:',
     ...observed,

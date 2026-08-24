@@ -1,0 +1,27 @@
+/* THESIS: a queue of feed failures read as a printed working timetable, not as a dashboard of
+   cards. The register is the page; exceptions are an overprint; the suppressed feeds are the
+   footnote apparatus, which is what they actually are.
+   OWN-WORLD: warm printed grey ground, near-black ink, hairline rules, one vermilion overprint,
+   Archivo Narrow for headings and figures, tabular numerals everywhere a count appears.
+   STORY: the analyst sees how many things this really is, then opens one and sees what was
+   observed, who owns it and what would be said to them.
+   FIRST VIEWPORT: masthead rule, the collapse (53 tickets, 18 causes), the day's totals as a
+   ruled strip, then the register.
+   FORM: working timetable / Kursbuch, with the docket number borrowed from a fault register
+   and the state lamp from a control panel. */
+
+:root {
+  --paper: #e9e6df;
+  --paper-lift: #f2f0ea;
+  --ink: #16161a;
+  --ink-soft: #57534a;
+  --ink-faint: #8b857a;
+  --rule: #b3aea3;
+  --rule-faint: #cbc6bb;
+  --over: #b4331f;
+  --over-soft: #d9836f;
+  --lamp-off: #c3bdb1;
+  --sans: Archivo, ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  --narrow: "Archivo Narrow", Archivo, ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
