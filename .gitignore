@@ -1,0 +1,11 @@
+# local probe output outside the dated run capture
+detections.json
+
+# recipient channels, addresses never belong in this repository
+registry.local.json
+
+# drafted messages, written by the approval gate
+data/outbox/
+
+__pycache__/
+.venv/

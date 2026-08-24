@@ -1,124 +1,100 @@
 #!/usr/bin/env python3
-"""Probe every GTFS feed a jurisdiction publishes and classify what came back.
+"""Probe every GTFS feed a jurisdiction publishes and turn the failures into cases.
 
 Reads the public Mobility Database catalog CSV. No credentials, no API key.
-Prints the case summary; writes raw detections to --out for replay.
+Writes one dated detection file per run to data/runs/ and prints the case summary.
+Prior runs in that directory give each cause its consecutive-failure count.
 """
-import argparse, csv, io, json, socket, ssl, sys, urllib.error, urllib.request
+import argparse, csv, io, json, os, sys, urllib.request
 import concurrent.futures as cf
-from collections import Counter, defaultdict
-from urllib.parse import urlparse
+from collections import Counter
+from datetime import datetime, timezone
+
+from cases import build_cases, streaks, triage, CREDENTIAL_REASON
+from detection import probe, UA
 
 CATALOG = "https://bit.ly/catalogs-csv"
-UA = "casework-probe/0.1 (transit feed health; +https://github.com/sneg55/casework)"
 
 
-def classify(exc, resp_bytes, headers, auth_type):
-    """Return (status_class, healthy). Order matters; first match wins."""
-    if exc is not None:
-        if isinstance(exc, urllib.error.HTTPError):
-            if exc.code in (401, 403) and str(auth_type) not in ("0", "", "None"):
-                return "auth_declared", True          # catalog says a key is required
-            if exc.code in (401, 403):
-                return "auth_rejected", False
-            if exc.code == 404:
-                return "not_found", False
-            return f"http_{exc.code}", False
-        reason = getattr(exc, "reason", exc)
-        if isinstance(reason, ssl.SSLCertVerificationError):
-            return "tls_expired", False
-        if isinstance(reason, ssl.SSLError):
-            return "tls_error", False
-        if isinstance(reason, socket.gaierror):
-            return "dns_failure", False
-        if isinstance(reason, (TimeoutError, socket.timeout)):
-            return "timeout", False
-        return "network", False
-    ctype = (headers.get("Content-Type") or "").split(";")[0].strip().lower()
-    if resp_bytes[:2] == b"PK":
-        return "ok", True
-    if ctype.startswith("text/") or ctype == "application/json":
-        return "content_type_mismatch", False
-    return "not_a_zip", False
-
-
-def probe(row, timeout):
-    url = row["urls.direct_download"]
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Range": "bytes=0-2047"})
-    exc = body = None
-    headers = {}
-    try:
-        r = urllib.request.urlopen(req, timeout=timeout)
-        body, headers = r.read(2048), r.headers
-        code = r.status
-    except Exception as e:                                  # noqa: BLE001 - classified below
-        exc, code = e, getattr(e, "code", None)
-    status, healthy = classify(exc, body or b"", headers, row.get("urls.authentication_type"))
-    return {
-        "provider": row["provider"],
-        "url": url,
-        "host": urlparse(url).netloc.lower(),
-        "path": urlparse(url).path,
-        "status_class": status,
-        "healthy": healthy,
-        "http_code": code,
-        "content_type": (headers.get("Content-Type") or "") if headers else "",
-        "auth_type": row.get("urls.authentication_type"),
-        "contact_on_file": bool(row.get("feed_contact_email")),   # never the address itself
-    }
-
-
-def build_cases(detections):
-    """Group failures sharing (host, status_class). A group of one is not a case."""
-    failing = [d for d in detections if not d["healthy"]]
-    groups = defaultdict(list)
-    for d in failing:
-        groups[(d["host"], d["status_class"])].append(d)
-    cases, singles = [], []
-    for (host, status), members in groups.items():
-        (cases if len(members) > 1 else singles).append(
-            {"host": host, "status_class": status, "members": members}
-        )
-    cases.sort(key=lambda c: -len(c["members"]))
-    return cases, singles
-
-
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--jurisdiction", default="California")
-    p.add_argument("--timeout", type=int, default=18)
-    p.add_argument("--workers", type=int, default=12)
-    p.add_argument("--out", default="detections.json")
-    a = p.parse_args()
-
+def load_catalog(jurisdiction, feed_ids=None):
     raw = urllib.request.urlopen(
         urllib.request.Request(CATALOG, headers={"User-Agent": UA}), timeout=60
     ).read().decode("utf-8", "replace")
     rows = [
         r for r in csv.DictReader(io.StringIO(raw))
         if r.get("data_type") == "gtfs"
-        and r.get("location.subdivision_name") == a.jurisdiction
+        and r.get("location.subdivision_name") == jurisdiction
         and r.get("urls.direct_download")
     ]
-    print(f"catalog: {len(rows)} {a.jurisdiction} GTFS feeds", file=sys.stderr)
+    if feed_ids:
+        wanted = set(feed_ids)
+        rows = [r for r in rows if r.get("mdb_source_id") in wanted]
+    return rows
 
-    with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
-        detections = list(ex.map(lambda r: probe(r, a.timeout), rows))
-    json.dump(detections, open(a.out, "w"), indent=1)
 
-    suppressed = [d for d in detections if d["status_class"] == "auth_declared"]
-    scope = [d for d in detections if d["status_class"] != "auth_declared"]
-    healthy = [d for d in scope if d["healthy"]]
-    cases, singles = build_cases(scope)
+def report(detections, run_dir, run_date, live):
+    in_scope = [d for d in detections if d["status_class"] != "auth_declared"]
+    healthy = [d for d in in_scope if d["healthy"]]
+    failing = [d for d in in_scope if not d["healthy"]]
+    credential = [d for d in detections if triage(d) == CREDENTIAL_REASON]
+    by_catalog = [d for d in failing if triage(d)]
+    cases, singles = build_cases(detections)
+    days, prior_runs = streaks(run_dir, run_date, [c["cause_key"] for c in cases + singles])
 
-    print(f"\n  checked {len(scope)}   healthy {len(healthy)}   failing {len(scope)-len(healthy)}")
-    print(f"  suppressed (catalog declares a key is required, feeds are healthy): {len(suppressed)}\n")
+    print(f"\n  {'live run' if live else 'replay'} {run_date}, {prior_runs} prior run(s) on file")
+    print(f"  checked {len(in_scope)}   healthy {len(healthy)}   failing {len(failing)}")
+    print(f"  suppressed: {len(credential)} declare a credential, "
+          f"{len(by_catalog)} the catalog has already retired or not yet shipped")
+    print(f"  actionable failures {len(failing) - len(by_catalog)}\n")
     for c in cases:
-        print(f"  {len(c['members']):>3} agencies  {c['host']:34} {c['status_class']}")
+        n = len(c["members"])
+        print(f"  {n:>3} {'agencies' if n != 1 else 'agency  '}  {c['cause_key'].split('|')[0]:52.52} "
+              f"{c['cause_kind']:22} -> {c['proposed_party']:14} "
+              f"run {days[c['cause_key']]}/3")
+        for reason, k in Counter(triage(d) for d in c["corroborating"]).most_common():
+            print(f"      +{k} corroborating: {reason}")
     grouped = sum(len(c["members"]) for c in cases)
+    ready = [c for c in cases + singles if days[c["cause_key"]] >= 3]
     print(f"\n  grouped {grouped} failures into {len(cases)} cases; {len(singles)} individual")
-    print(f"  tickets: per-feed {grouped+len(singles)}  ->  root-cause {len(cases)+len(singles)}")
+    print(f"  candidate causes {len(cases) + len(singles)}, against {len(failing)} "
+          f"tickets a per-feed view would open")
+    print(f"  past the 3-day rule, so drafted: {len(ready)}")
     print(f"\n  status classes: {dict(Counter(d['status_class'] for d in detections))}")
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--jurisdiction", default="California")
+    p.add_argument("--feed-ids", help="comma-separated mdb_source_id list, default all")
+    p.add_argument("--timeout", type=int, default=18)
+    p.add_argument("--workers", type=int, default=12)
+    p.add_argument("--attempts", type=int, default=2, choices=(1, 2),
+                   help="a second attempt is made on transport failures only")
+    p.add_argument("--run-dir", default="data/runs")
+    p.add_argument("--no-capture", action="store_true", help="report without writing the run")
+    p.add_argument("--replay", help="report a captured run instead of fetching anything")
+    a = p.parse_args()
+
+    if a.replay:
+        with open(a.replay) as fh:
+            detections = json.load(fh)
+        report(detections, a.run_dir, detections[0]["run_date"], live=False)
+        return
+
+    run_date = datetime.now(timezone.utc).date().isoformat()
+    rows = load_catalog(a.jurisdiction, a.feed_ids.split(",") if a.feed_ids else None)
+    print(f"catalog: {len(rows)} {a.jurisdiction} GTFS feeds", file=sys.stderr)
+    with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
+        detections = list(ex.map(lambda r: probe(r, a.timeout, a.attempts, run_date), rows))
+
+    report(detections, a.run_dir, run_date, live=True)   # before it lands, so it is not its own history
+    if a.no_capture:
+        return
+    os.makedirs(a.run_dir, exist_ok=True)
+    out = os.path.join(a.run_dir, f"{run_date}.json")
+    with open(out, "w") as fh:
+        json.dump(detections, fh, indent=1)
+    print(f"  captured {out}\n")
 
 
 if __name__ == "__main__":
