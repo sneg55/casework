@@ -25,16 +25,17 @@ shows:
   suppressed: 7 declare a credential, 25 the catalog has already retired or not yet shipped
   actionable failures 28
 
-    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository owner   day 1/3
+    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository     run 1/3
       +4 corroborating: catalog already re-points this entry
-    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host operator      day 1/3
+    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host_operator  run 1/3
       +5 corroborating: catalog marks this entry pre-production
       +1 corroborating: catalog already re-points this entry
-    1 agency    transitfeeds.com                                     deprecated_service     -> catalog maintainer day 1/3
+    1 agency    transitfeeds.com                                     deprecated_service     -> catalog        run 1/3
       +6 corroborating: catalog already re-points this entry
 
   grouped 13 failures into 3 cases; 15 individual
-  tickets: per-feed 53  ->  root-cause 18   (0 past the 3-day rule, so drafted today)
+  candidate causes 18, against 53 tickets a per-feed view would open
+  past the 3-day rule, so drafted: 0
 ```
 
 Those seven agencies are dark because a single repository that hosts GTFS on their behalf was
@@ -42,10 +43,10 @@ reorganised and the paths the catalog references are gone. Writing to seven city
 seven wrong emails. None of them controls that repository.
 
 Of the other 25 failures, none is a ticket at all, and the catalog says so itself. It marks 20
-of them `deprecated`, each already naming its replacement feed, and five `development`, two of
-those literally `.../test/TestFlex1.zip`. A further seven feeds return 401
-and are perfectly healthy, because the catalog records that they need an API key. A checker
-that reads only the HTTP response opens 32 tickets that should not exist.
+of them `deprecated`, each already naming its replacement feed, and five `development`, three of
+those under `/test/`. A further seven feeds return 401 and are perfectly healthy, because the
+catalog records that they need an API key. A checker that reads only the HTTP response opens 32
+tickets that should not exist.
 
 ## Try it
 

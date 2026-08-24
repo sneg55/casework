@@ -17,9 +17,13 @@ summary: Build spec for Casework, an agent that works a transit data steward's f
 > Quality) and Savile Row (Best UI) are both winnable from the same build and are treated
 > as requirements, not stretch goals.
 
-Every count in sections 1 and 3 was measured on **2026-08-24** by `scripts/probe_catalog.py`
-against live public endpoints. Section 14 states what is proven and what is not. Absolute
-counts move as publishers change their hosting; the probe re-measures them in one command.
+Every count of feeds, failures, causes and suppressions in this document was measured on
+**2026-08-24** by `scripts/probe_catalog.py` against live public endpoints, and the run it was
+measured from is committed at `data/runs/2026-08-24.json`. Three statements are not the probe's
+and are marked where they appear: the operator's manual-check count, the state of the LACMTA
+repository, and the catalog-wide repository count. Section 14 states what is proven and what is
+not. Absolute counts move as publishers change their hosting; the probe re-measures them in one
+command.
 
 ---
 
@@ -32,7 +36,8 @@ fault it is, and who to write to.
 That somebody is a person. In California the role is a **weekly on-call analyst**, working
 from a dashboard, applying an SOP of three consecutive failure days by eye, and hand-creating
 tickets in two separate systems. Around fourteen of the checks in that workflow are recorded
-by the operator as ones that can only be performed manually.
+by the operator as ones that can only be performed manually. That count comes from the
+operator's own description of the workflow, not from this probe.
 
 The tooling that exists stops one step short of that job:
 
@@ -64,30 +69,36 @@ GTFS feeds that declare no credential requirement:
 | Tickets a root-cause view produces | **18** |
 
 Reproduce with `python3 scripts/probe_catalog.py`, which writes `data/runs/<date>.json` and
-replays any captured run with `--replay`. **The three clusters are stable across runs; the
-healthy and singleton counts are not.** Two runs an hour apart on 2026-08-24 gave 196 healthy
-and 192, with the same three clusters at the same sizes both times. That spread is transient
-upstream flakiness, and it is the reason the SOP in section 10 waits three days before acting
-on a single-agency failure.
+replays any captured run with `--replay`. **The three cases are stable across runs; the healthy
+and singleton counts are not.** Runs on 2026-08-24 have given 196 healthy and 192, with the same
+three cases at the same sizes every time, and the last two runs of the day agreed on the status
+class of all 256 feeds. A date holds one file, so the committed artifact is the last run of
+2026-08-24 and cross-run agreement is an observation rather than something the repository proves.
+From 08-25 the dated files make it checkable. That spread is transient upstream flakiness, and
+it is the reason the SOP in section 10 waits three days before acting on a single-agency
+failure.
 
 Of the fifty-three, twenty-five deserve their own line, because they are the difference between
 a tool an analyst trusts and one they mute. The catalog carries a `status` field and a
 `redirect.id` field. **The catalog marks 20 of the failing entries `deprecated`, and every one
-of them already names its replacement feed.** A further five are marked `development`, two of
-which are literally `gtfs.calitp.org/test/TestFlex1.zip`. None of the twenty-five is a ticket,
-and a checker that reads only the HTTP response cannot know that.
+of them already names its replacement feed.** A further five are marked `development`, three of
+them under `gtfs.calitp.org/test/`, named `TestFlex1.zip`, `TestFlex2.zip` and `TestFlex3.zip`.
+None of the twenty-five is a ticket, and a checker that reads only the HTTP response cannot know
+that.
 
 The three shared causes, all verified by direct fetch:
 
 1. **`LACMTA/los-angeles-regional-gtfs` on `raw.githubusercontent.com`, 7 agencies, HTTP 404.**
    All of them point into a single repository, whose own description reads "LA Metro is hosting
    GTFS data on behalf of various regional agencies". The repository is **public, not archived,
-   and was pushed 2026-08-23**. It currently contains three agency directories. The catalog
+   and was pushed 2026-08-23**, and it currently contains three agency directories. Those four
+   facts come from the GitHub API, read by hand on 2026-08-24 and by `repo.inspect` once it
+   exists; the probe run does not contain them. The catalog
    references eleven directories that are no longer present, and it has already re-pointed four
    of those eleven elsewhere, which leaves **seven live entries dark and four that corroborate
    the cause rather than dilute it**. This is not an outage. It is a repository reorganization,
    and none of the seven agencies controls the repository or can restore a path inside it.
-2. **`gtfs.calitp.org`, 5 agencies, HTTP 200.** The URL ends `.zip` and the response is
+2. **`gtfs.calitp.org`, 5 agencies, HTTP 206.** The URL ends `.zip` and the response is
    `Content-Type: text/html`. A status check passes. A content check does not. A further six
    entries on the same host share the symptom and are suppressed: five are `development`, one
    is already re-pointed.
@@ -98,9 +109,10 @@ The three shared causes, all verified by direct fetch:
    because six retired siblings prove the host is gone**, and it is the clearest example in
    the dataset of the catalog's own state doing attribution work.
 
-And the control that matters as much as any of them: **seven feeds on `api.511.org` returned
-HTTP 401 and are healthy.** The catalog marks them `authentication_type = 1`. A naive checker
-opens seven tickets against seven agencies for feeds that are working correctly.
+And the control that matters as much as any of them: **seven feeds returned HTTP 401 and are
+healthy**, six on `api.511.org` and one on `api.actransit.org`. The catalog marks all seven
+`authentication_type = 1`. A naive checker opens seven tickets against seven agencies for feeds
+that are working correctly.
 
 ## 2. What we are building
 
@@ -152,9 +164,9 @@ job it exists for, and the project stops working if you remove any of them.
   ├── Skill (git-backed)          casework-sop/SKILL.md
   │                               the 3-day rule, attribution rules, suppression rules,
   │                               message tone and escalation ladder
-  ├── Sandbox + Code Mode         probe_catalog.py, cluster.py, attribute_*.py
-  │                               249 concurrent fetches, TLS inspection, magic-byte
-  │                               checks. Returns a table, never the payloads.
+  ├── Sandbox + Code Mode         probe_catalog.py, detection.py, cases.py
+  │                               256 feeds, 12 at a time, range-limited reads and
+  │                               magic-byte checks. Returns a table, never the payloads.
   ├── Subagents                   one per candidate case, each testing a single
   │                               attribution hypothesis against evidence
   ├── MCP server (ours)           casework-mcp: catalog, cases, evidence, outreach
@@ -200,7 +212,9 @@ itself splits.
 
 ```
   casework/
-  ├── scripts/probe_catalog.py       sandbox code, stdlib only
+  ├── scripts/probe_catalog.py       sandbox code, stdlib only: CLI, capture, report
+  ├── scripts/detection.py           one feed, one observation
+  ├── scripts/cases.py               triage, grouping, cause and party resolution
   ├── data/runs/<date>.json          one capture per run, committed
   ├── packages/mcp/                  casework-mcp, TypeScript, stdio
   ├── packages/ui/                   React shell embedding the SDK
@@ -214,16 +228,25 @@ than one at the end: `ruff check`, `pytest`, `biome ci`, `tsc --noEmit`, `vitest
 Qodo review itself. The daily run capture is a local command while the repository has no remote;
 it becomes a scheduled workflow the day it gets one.
 
-**Why Code Mode is load-bearing and not decoration.** 249 feeds, each fetched with a range
-request, TLS chain inspected, first bytes examined. The responses total tens of megabytes and
-none of them can enter a context window. The script computes in the sandbox and prints a
-31-row table. Remove Code Mode and the project cannot run at all, which is the sponsor's own
-stated argument about tool payloads compounding across turns.
+**Why Code Mode is load-bearing and not decoration.** The catalog CSV alone is **1.12 MB**,
+2,462 rows across 29 columns, and it is read in full to select 256 California feeds. Each feed
+is then fetched with a range request, so the bodies add up to **512 KB** at the cap, on top of
+256 header sets. None of that can usefully enter a context window, and none of it needs to: the
+script computes in the sandbox and prints an **18-line report**. The ratio, roughly 1.6 MB in
+and 18 lines out, is the sponsor's own argument about tool payloads compounding across turns,
+and it is why the numbers in this document are cheap to re-measure. Remove Code Mode and the
+model would have to read the catalog itself.
 
 **Why the approval gate is honest here.** The gated action is a message to an outside
 organization about their infrastructure. It cannot be unsent, it reaches a real third party,
 and a wrong one costs the operator credibility. That is a genuine irreversible action rather
 than a prompt in front of a shell command.
+
+Being precise about what ships: **the transport is not wired for the demo**, so approving
+writes the Decision, the trace and `data/outbox/<case_id>.eml`, and nothing leaves the machine.
+The gate guards the seam where a transport would be configured, which is the only place it
+could guard, and the video says exactly that. The design claim is that the boundary is in the
+right place; it is not a claim that mail was sent.
 
 ## 5. The MCP server
 
@@ -232,11 +255,12 @@ than a prompt in front of a shell command.
 | Tool | Reads/writes | Notes |
 |---|---|---|
 | `catalog.load(jurisdiction)` | read | Fetches the public catalog CSV, returns rows with provider, url, auth type, **`status`, `redirect.id`**, and contact presence. **Never returns contact addresses.** |
-| `probe.run(feed_ids[])` | read | Delegates to the sandbox script. Returns detections only. |
+| `probe.run(jurisdiction, feed_ids?)` | read + capture | Delegates to the sandbox script, which fetches nothing but the catalog and the feeds and writes the run to `data/runs/<date>.json`. Returns detections only. `--no-capture` reports without writing, for a re-probe during attribution. |
 | `cases.build(run_date)` | write | Triage, clustering, cause resolution, day counts. Idempotent per run date. |
 | `cases.list(state)` | read | Queue for the UI, suppressed rows included with their reason. |
 | `evidence.get(case_id)` | read | Every observation backing a case, with timestamps. |
 | `repo.inspect(host, path)` | read | GitHub API: does the repo exist, is it archived, when was it pushed, what paths exist. The attribution step for code-hosted feeds. |
+| `tls.inspect(host)` | read | Opens one TLS connection and returns the certificate subject, issuer and expiry. The probe records only that a handshake failed; the certificate detail is collected here, at attribution time, for the same reason `repo.inspect` is. |
 | `redirect.resolve(feed_id)` | read | Follows a catalog `redirect.id` to the replacement entry and probes it, so a suppressed row can prove the replacement is actually healthy. |
 | `recipient.lookup(case_id)` | read | Returns the **kind** of recipient and whether an address is on file. Never the address. |
 | `outreach.draft(case_id)` | write | Produces the message. Not gated. |
@@ -245,16 +269,22 @@ than a prompt in front of a shell command.
 **Who the message is addressed to.** The catalog's `feed_contact_email` covers agencies, and
 152 of the 256 California entries carry one. It does not cover the parties that actually own
 these three causes: a repository owner, a hosting platform operator, a catalog maintainer. So
-a **recipient registry** maps `responsible_party` to a channel, in one committed file with no
+a **recipient registry** maps `party_kind` to a channel, in one committed file with no
 addresses in it:
 
 ```
-party_kind      resolver                                    address source
-repository      GitHub owner of the repo in the cause_key   registry.local.json (not committed)
-host_operator   the failing host                            registry.local.json
-catalog         the catalog's own issue tracker             registry.local.json
-agency          catalog feed_contact_email for the feed     resolved from the CSV at send time
+party_kind    cause_kind it serves                  resolver                          address source
+repository    code_host_path_removed               GitHub owner in the cause_key     registry.local.json (never committed)
+host_operator content_type_mismatch, auth_rejected, the failing host                  registry.local.json
+              redirect_unresolved, host_unreachable
+catalog       deprecated_service                   the catalog's own issue tracker   registry.local.json
+cert_holder   tls_expired                          certificate subject from tls.inspect  registry.local.json
+agency        path_not_found, individual           the feed's catalog entry          feed_contact_email, read at send time
 ```
+
+Every `cause_kind` in section 6 maps to exactly one `party_kind` here, and the two enums are
+checked against each other in the MCP schemas. A cause kind with no registry entry is a spec
+bug, not a runtime fallback.
 
 `recipient.lookup` returns `{party_kind, resolvable: true|false}` and nothing else. A case whose
 recipient is not resolvable still reaches the queue and still shows its draft; it simply cannot
@@ -277,9 +307,9 @@ Detection   run_date, observed_at, feed_id, provider, url, host, path,
 
 Suppression run_date, feed_id, reason, source(catalog_field|sop)
 
-Case        case_id, run_date, cause_key, cause_kind, status_class,
-            member_feed_ids[], corroborating_feed_ids[], agency_count,
-            responsible_party, confidence, consecutive_runs, state
+Case        case_id, cause_key, cause_kind, status_class, member_feed_ids[],
+            corroborating_feed_ids[], agency_count, proposed_party, party_kind,
+            confidence, first_seen, last_seen, consecutive_runs, state
 
 Evidence    case_id, kind, observation, source_url, observed_at
 
@@ -301,12 +331,67 @@ service in one group and a host that started demanding credentials in another. S
 the rule.
 
 `status_class` is what one response looked like. `cause_kind` is what the group means. They are
-different fields on purpose, and the mapping between them lives in `resolve_cause()` in
-`scripts/probe_catalog.py`, which is the single place either can change.
+different fields on purpose. The mapping lives in one module, `scripts/cases.py`: `CAUSE_KIND`
+for the classes a single response settles, `resolve_cause()` for the ones only the group can.
+An unrecognised class, which in practice means an `http_<code>` nobody has seen yet, resolves by
+its HTTP family, and anything left over is `host_unreachable`. No status class is dropped and
+none reaches a case without a kind.
 
 Detections persist as one JSON file per run date under `data/runs/`, which is both the audit
-record and the input to the day counter. The MCP server mirrors them into the harness's SQLite
-for querying; the files stay canonical so a run can be replayed with nothing else installed.
+record and the input to the run counter. The MCP server mirrors them into the harness's SQLite
+for querying; the files stay canonical so a run can be replayed with nothing else installed. A
+date holds exactly one file, the last run of that date.
+
+**Identity.** `case_id` is the first 12 hex characters of the SHA-1 of `cause_key`. It is
+derived, not allocated, so the same cause is the same case tomorrow and `cases.build` is
+idempotent by construction: rebuilding a run date updates one row per cause and can never
+duplicate one. A Case therefore persists across runs and carries `first_seen`, `last_seen` and
+`consecutive_runs`; the per-run facts stay in Detection.
+
+**States.** A case is in exactly one of:
+
+| State | Means | Leaves it when |
+|---|---|---|
+| `watching` | failing, under three consecutive runs | the count reaches three, or the cause stops failing |
+| `ready` | three or more consecutive runs, draft generated, waiting on a human | a human acts on it |
+| `snoozed` | a human deferred it to a date | the date passes, back to `ready` |
+| `approved` | a human approved the draft, `outreach.send` ran | the cause fails again after resolving, which restarts it at `watching` |
+| `rejected` | a human rejected it | same |
+| `resolved` | the cause stopped failing | it fails again |
+
+`consecutive_runs` resets to zero on `resolved`, so a cause that comes back waits three runs
+again rather than inheriting last month's streak. An edit writes a new Draft row and keeps the
+previous one; the latest is what `outreach.send` reads. A second approval on an already
+approved case is refused by the MCP server, not by the UI.
+
+**Confidence** is an integer from 0 to 3, and it is counted rather than estimated. One point if
+`cause_kind` resolved to something other than the `host_unreachable` fallback; one if the group
+has two or more actionable members or any corroborating ones; one if the attribution step
+returned evidence naming the party. The UI shows it as low, medium or high, and 0 means
+unattributed, which cannot be approved.
+
+**Evidence** is a discriminated record, because a repository fact and a TLS fact are not the
+same shape:
+
+```
+kind      fields
+http      feed_id, url, status_class, http_code, content_type, magic_ok, observed_at
+catalog   feed_id, field, value            e.g. status=deprecated, redirect.id=2684
+repo      owner, repo, exists, archived, pushed_at, paths_present[]
+redirect  from_feed_id, to_feed_id, replacement_status_class
+tls       host, subject, issuer, not_after
+```
+
+**The attribution subagent** takes a `case_id` and the case's detections, may call
+`repo.inspect`, `tls.inspect`, `redirect.resolve` and `probe.run(..., no_capture=true)`, and
+must return `{party_kind, confidence_points[], evidence[]}` and nothing else. It never drafts
+and never sends. If it fails, times out, or returns a `party_kind` the recipient registry does
+not know, the case stays unattributed at confidence 0 and reaches the queue that way. One
+subagent per case, and its result is written once.
+
+**Closed enums.** `cause_kind`, `party_kind`, `state`, Decision `action` and the suppression
+reasons are closed lists, defined here and enforced in the MCP tool schemas and the SQLite
+constraints. Adding a value is a spec change, not a runtime surprise.
 
 ## 7. Classification and triage
 
@@ -317,18 +402,25 @@ row with a reason instead of quietly dropping it.
 **Pass one, the response.** In order, first match wins.
 
 1. Transport failed (DNS, connection reset, timeout) → `dns_failure | timeout | network`.
-2. TLS chain invalid → `tls_expired`, evidence carries the certificate subject and expiry.
+2. TLS chain invalid → `tls_expired`. The probe records the failure only; the certificate
+   subject, issuer and expiry are read later by `tls.inspect`, since a classifier that opened a
+   second connection per feed would be doing attribution's job.
 3. HTTP 401/403 **and** catalog declares `authentication_type != 0` → `auth_declared`, healthy.
 4. HTTP 401/403 otherwise → `auth_rejected`.
 5. HTTP 404 → `not_found`.
 6. Any other HTTP error → `http_<code>`.
-7. HTTP 200 and first two bytes are `PK` → healthy.
-8. HTTP 200 and content type is `text/*` or `application/json`, or the bytes are not a zip →
-   `content_type_mismatch` / `not_a_zip`.
+7. A response arrived, so the status is 2xx, and the first two bytes are `PK` → healthy.
+8. A response arrived and the content type is `text/*` or `application/json`, or the bytes are
+   not a zip → `content_type_mismatch` / `not_a_zip`.
 
-Transport failures, and only those, are retried once before the class is recorded. A 404 does
-not become a 200 on a second attempt, and retrying every failure would double a 249-feed run
-for nothing.
+Every request carries `Range: bytes=0-2047`, so a served feed answers **206, not 200**: 182 of
+the 256 responses in the committed run are 206. The classifier never reads the success code,
+only the bytes and the content type, which is why a 206 of HTML is caught and a 200 of HTML
+would be too.
+
+Transport failures, and only those, get a second attempt before the class is recorded. Two is
+the maximum, enforced by the CLI rather than left to a flag: a 404 does not become a 206 on a
+retry, and retrying every failure would double a 256-feed run for nothing.
 
 **Pass two, the catalog.** Each failure carries a suppression reason or none.
 
@@ -339,10 +431,16 @@ for nothing.
 | `status` is `deprecated` or `inactive`, no redirect | retired, no replacement recorded, a catalog gap rather than a feed fault | 0 |
 | `status` is `development` | pre-production entry | 5 |
 
-These two rules are what earn the tool's place: 32 of the 60 failing-looking feeds are already
-answered somewhere the analyst would have had to look by hand. A suppressed row is never
-silently dropped. It appears in the queue, greyed, with its reason, and it still contributes to
-its cause as corroboration under section 8.
+These two rules are what earn the tool's place: 32 of the 60 failing-looking responses are
+already answered somewhere the analyst would have had to look by hand. A suppressed row is
+never silently dropped; it appears in the queue, greyed, with its reason and the catalog field
+behind it.
+
+The two suppressions differ in one way that matters. A **credential** suppression says the feed
+is healthy, so it is not a failure and never corroborates one; those seven rows are excluded
+from grouping entirely. A **catalog-state** suppression says the entry is retired or not yet
+live, which leaves the failure real and the ticket wrong, so those rows do corroborate their
+cause under section 8.
 
 ## 8. Grouping
 
@@ -362,8 +460,9 @@ Guards, so the grouping cannot flatter itself:
   count on the queue row.
 - Two agencies behind the same CDN with different `status_class` values do not group.
 - The 12 California feeds on `raw.githubusercontent.com` all belong to one repository, so the
-  repository is not doing work in this dataset. Catalog-wide, that same host serves 12 distinct
-  repositories, which is why the key carries it.
+  repository is not doing work in this dataset. Across the whole catalog, not just the California
+  slice the run covers, that host serves 24 feeds belonging to 12 distinct repositories, which is
+  why the key carries it. That count is from the catalog CSV, not from the committed run.
 - A group is recorded with its member count so the UI can show what was collapsed.
 
 Measured behaviour on the 2026-08-24 run: 13 actionable failures grouped into 3 cases, **15
@@ -387,17 +486,20 @@ tell these apart. In order:
 4. Otherwise the `status_class` maps straight through: content mismatch, TLS, auth, DNS,
    timeout, network.
 
-Then the party:
+Then the party. The probe proposes one from the cause kind alone, in a field called
+`proposed_party`, and that proposal is what the queue shows before investigation. The subagent
+either confirms it with evidence or replaces it. Nothing is drafted against a proposal: a case
+reaches `ready` only with a `party_kind` the registry knows and evidence naming it.
 
 | Cause kind | Investigation | Responsible party |
 |---|---|---|
-| `code_host_path_removed` | `repo.inspect`: does the repo exist, is it archived, last push, which paths are present now | **The repository owner**, never the agencies. If the repo is alive and the paths are gone, the message asks whether they moved or whether the catalog should be re-pointed. |
-| `content_type_mismatch` | Fetch once more, record content type and byte prefix | **The host operator.** The platform is serving the wrong thing under a `.zip` URL. |
-| `deprecated_service` | `redirect.resolve` on the retired siblings: are their replacements healthy, and does the surviving entry have one | **The catalog**, action is re-point. Contacting the agencies is the wrong move. |
-| `tls_expired` | Read the certificate subject and expiry | **The certificate holder**, which is usually a vendor and not the agency. |
-| `redirect_unresolved` / `host_unreachable` | Re-fetch, record the redirect chain or the transport error | **The host operator.** |
-| `path_not_found` | 404 on a host that is otherwise serving | **The feed publisher**, which is the agency only when the host is the agency's own. |
-| `individual` | None until the 3-day rule fires | The agency, and only then. |
+| `code_host_path_removed` | `repo.inspect`: does the repo exist, is it archived, last push, which paths are present now | `repository`. **The repository owner**, never the agencies. If the repo is alive and the paths are gone, the message asks whether they moved or whether the catalog should be re-pointed. |
+| `content_type_mismatch` | Fetch once more, record content type and byte prefix | `host_operator`. The platform is serving the wrong thing under a `.zip` URL. |
+| `deprecated_service` | `redirect.resolve` on the retired siblings: are their replacements healthy, and does the surviving entry have one | `catalog`, action is re-point. Contacting the agencies is the wrong move. |
+| `tls_expired` | `tls.inspect`: certificate subject, issuer and expiry | `cert_holder`, which is usually a vendor and not the agency. |
+| `redirect_unresolved` / `host_unreachable` | Re-fetch, record the redirect chain or the transport error | `host_operator`. |
+| `path_not_found` | 404 on a host that is otherwise serving | `agency`, and the subagent reassigns to `host_operator` when the host is not the agency's own. |
+| `individual` | None until the 3-day rule fires | `agency`, and only then. |
 
 Confidence is recorded per case and the UI shows it. A case the agent cannot attribute stays
 in the queue as unattributed rather than guessing a recipient, and so does a case whose
@@ -405,8 +507,11 @@ in the queue as unattributed rather than guessing a recipient, and so does a cas
 
 ## 10. Suppression, the 3-day rule
 
-State persists across runs. A `cause_key` seen failing on fewer than three consecutive runs
-produces **no draft and no ticket**, and appears in the queue greyed out with a day counter.
+State persists across runs. A `cause_key` seen failing on fewer than three consecutive runs is
+a **candidate cause**: it appears in the queue with its run counter and produces **no draft and
+no ticket**. The 18 in section 1 are candidate causes, counted against the 53 tickets a per-feed
+view would open on the same data. On the first run none of them is drafted, and the queue says
+so.
 This is the operator's real SOP and it is the single most important reason the tool would be
 adopted rather than muted.
 
@@ -429,18 +534,23 @@ showing rather than hiding.
 
 ## 11. Interface
 
-Two screens. `@truefoundry/trueforge-ui` is an assistant-ui chat shell with themed atoms,
-swappable slots and a layout set, not a general application framework, so the split is:
+Two screens, in a docked layout: the queue and case routes hold the main pane, the agent's
+chat is docked beside them. `@truefoundry/trueforge-ui` is an assistant-ui chat shell with
+themed atoms, swappable slots and a layout set (`DockLayout`, `SidebarLayout`, `WidgetLayout`),
+not a general application framework, so the division of labour is fixed here rather than left
+to the week:
 
-- **The shell** is a small React app embedding the SDK, with the project's own theme, and it
-  owns routing so a case has a URL a judge can be linked to.
-- **The screens** are emitted by the agent as OpenUI blocks, the harness's generative-UI
-  surface, whose component vocabulary is `Stack`, `Card`, `Table`, `Tabs`, `Accordion`,
-  `Button`, `Form`, `Input`, `Select`. Queue and case both fall inside that vocabulary, and
-  the buttons drive the agent's own tools, which is what makes approve mean approve rather
-  than a UI state change that a backend then has to be told about.
-- If a screen turns out not to fit the vocabulary, it moves into the shell as a normal React
-  route reading `cases.list` through the MCP server. The fallback costs layout, not data.
+- **The screens are ordinary React routes** in the shell, reading `cases.list`, `evidence.get`
+  and `recipient.lookup` through the MCP server. They own the layout, the drill-down and the
+  URL, because "every number is clickable" and "link a judge to a case" are both routing
+  problems and neither survives being regenerated by a model on each turn.
+- **OpenUI is used where generation is the point**: the agent's in-chat case summary and the
+  approval prompt, built from the vocabulary the harness exposes (`Stack`, `Card`, `Table`,
+  `Tabs`, `Accordion`, `Button`, `Form`, `Input`, `Select`). Approving there is a real tool
+  call, gated by the harness, so approve means approve rather than a UI state a backend has to
+  be told about afterwards.
+- **The action bar in the case route dispatches to the agent**, which is what raises the
+  harness's approval prompt in the docked pane. One path to `outreach.send`, not two.
 
 **Queue.** Cases ranked by actionable agency count. Each row: cause kind, host or repository,
 agency count, corroborating count, responsible party, confidence, day counter, state. A
@@ -461,15 +571,16 @@ Three minutes, four beats, one fixture, no staging. Counts are restated from the
 on the day, not from this document.
 
 1. **The queue.** 249 checked, 196 healthy, 53 failing, 25 of those already answered by the
-   catalog, 28 actionable, **18 tickets against 53**. State the collapse.
+   catalog, 28 actionable, **18 candidate causes against the 53 tickets a per-feed view opens**.
+   State the collapse.
 2. **Open the LACMTA case.** Seven agencies, all 404, plus four siblings the catalog has
    already re-pointed. The repository is alive and was pushed the day before. The directories
    the catalog references are not there. Attribution flips from seven cities to one repository
    owner. This is the beat the submission rests on.
 3. **The suppressed block.** Seven feeds returned 401 and are healthy because the catalog says
-   they need a key; 20 more are retired with a replacement already named. A naive checker opens
-   27 tickets that should not exist. This is the negative control, and it is the larger half of
-   the number the dashboard shows.
+   they need a key; 20 more are retired with a replacement already named, and five are marked
+   pre-production. A naive checker opens 32 tickets that should not exist. This is the negative
+   control, and it is the larger half of the number the dashboard shows.
 4. **Approve one message.** The gate holds, the trace records who approved what, and the
    message lands in the outbox rather than in anybody's inbox. Say so out loud.
 
@@ -505,13 +616,19 @@ commit landing straight on `main`.
 ## 14. What is proven and what is not
 
 **Proven, measured 2026-08-24 on live public endpoints by the committed script**, with the run
-itself committed at `data/runs/2026-08-24.json`. The 249/196/53 counts and the 25 the catalog
-had already answered. The three cases and their member agencies, stable across two runs. The 15
-singletons across 15 hosts. The 7 suppressed 511 feeds and the catalog field that justifies
-suppressing them. The 20 retired entries that each already name a replacement. The LACMTA
-repository being public, unarchived, pushed 2026-08-23, and containing three agency directories
-where the catalog references eleven. `gtfs.calitp.org` returning `text/html` under a `.zip` URL
-for five production entries.
+itself committed at `data/runs/2026-08-24.json` and re-checkable offline with `--replay`. The
+249/196/53 counts and the 25 the catalog had already answered. The three cases and their member
+agencies. The 15 singletons across 15 hosts. The 7 credential-suppressed feeds, six on
+`api.511.org` and one on `api.actransit.org`, and the catalog field that justifies suppressing
+them. The 20 retired entries that each already name a replacement. `gtfs.calitp.org` returning
+`text/html` under a `.zip` URL for five production entries, at HTTP 206.
+
+**Read from the public GitHub API on 2026-08-24, not from the run.** The LACMTA repository being
+public, unarchived, pushed 2026-08-23, and containing three agency directories where the catalog
+references eleven. `repo.inspect` re-reads all four during attribution.
+
+**Read from the catalog CSV, not from the California run.** That `raw.githubusercontent.com`
+serves 24 feeds across 12 distinct repositories catalog-wide.
 
 **Proven about the harness**, read from the published packages rather than from documentation:
 per-tool approval selectors, a local sandbox provider, name-only skill references resolved from
@@ -525,6 +642,14 @@ a skill store, and the OpenUI component vocabulary in section 11.
   count.
 - **Grouping is a heuristic.** The singletons show it is not over-merging on this data. That is
   evidence, not proof.
+- **Cross-run stability is an observation, not an artifact.** Runs on 2026-08-24 produced the
+  same three cases every time, and the last two agreed on the status class of all 256 feeds, but
+  a date holds one file so the repository cannot show that. From 08-25 the dated files can.
+- **The 3-day rule has never fired.** On the committed run every cause sits at run 1 of 3 and
+  nothing is drafted. The counter is tested against seeded history, not against a real streak,
+  until 08-26.
+- **`confidence` is counted, not calibrated.** The three points are defined in section 6 and are
+  reproducible, but nobody has checked that a 3 is right more often than a 2.
 - **The repository component of the cause key is untested on real conflicts.** All 12 California
   entries on `raw.githubusercontent.com` belong to one repository, so the key's extra precision
   changes nothing here. It is justified by the catalog-wide count of 12 distinct repositories on
