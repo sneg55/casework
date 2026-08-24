@@ -20,23 +20,32 @@ Run the probe against California's public GTFS feeds and the answer is not what 
 shows:
 
 ```
+  live run 2026-08-24, 0 prior run(s) on file
   checked 249   healthy 196   failing 53
-  suppressed (catalog declares a key is required, feeds are healthy): 7
+  suppressed: 7 declare a credential, 25 the catalog has already retired or not yet shipped
+  actionable failures 28
 
-   11 agencies  raw.githubusercontent.com          not_found
-   11 agencies  gtfs.calitp.org                    content_type_mismatch
-    7 agencies  transitfeeds.com                   auth_rejected
+    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository owner   day 1/3
+      +4 corroborating: catalog already re-points this entry
+    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host operator      day 1/3
+      +5 corroborating: catalog marks this entry pre-production
+      +1 corroborating: catalog already re-points this entry
+    1 agency    transitfeeds.com                                     deprecated_service     -> catalog maintainer day 1/3
+      +6 corroborating: catalog already re-points this entry
 
-  grouped 29 failures into 3 cases; 24 individual
-  tickets: per-feed 53  ->  root-cause 27
+  grouped 13 failures into 3 cases; 15 individual
+  tickets: per-feed 53  ->  root-cause 18   (0 past the 3-day rule, so drafted today)
 ```
 
-Eleven of those agencies are dark because a single repository that hosts GTFS on their behalf
-was reorganised and the paths the catalog references are gone. Eleven separate emails to
-eleven city halls would be eleven wrong emails. None of them controls that repository.
+Those seven agencies are dark because a single repository that hosts GTFS on their behalf was
+reorganised and the paths the catalog references are gone. Writing to seven city halls would be
+seven wrong emails. None of them controls that repository.
 
-Seven more feeds look broken and are perfectly healthy: the catalog already says they need an
-API key. A checker that does not read that field opens seven false tickets.
+Of the other 25 failures, none is a ticket at all, and the catalog says so itself. It marks 20
+of them `deprecated`, each already naming its replacement feed, and five `development`, two of
+those literally `.../test/TestFlex1.zip`. A further seven feeds return 401
+and are perfectly healthy, because the catalog records that they need an API key. A checker
+that reads only the HTTP response opens 32 tickets that should not exist.
 
 ## Try it
 
@@ -45,7 +54,15 @@ python3 scripts/probe_catalog.py --jurisdiction California
 ```
 
 No credentials, no API key, no install. Reads the public
-[Mobility Database](https://mobilitydatabase.org) catalog and the feed URLs as published.
+[Mobility Database](https://mobilitydatabase.org) catalog and the feed URLs as published, and
+writes the run to `data/runs/<date>.json`. Replay a captured run offline, fetching nothing:
+
+```bash
+python3 scripts/probe_catalog.py --replay data/runs/2026-08-24.json
+```
+
+Runs on file are what the 3-day rule counts, so the day counter is history rather than a
+staged prop.
 
 ## What this is not
 
