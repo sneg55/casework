@@ -202,7 +202,7 @@ itself splits.
 
 | Layer | Choice | Why this one |
 |---|---|---|
-| Sandbox code | **Python 3.9+, standard library only** | The harness runs Code Mode scripts with `python3`, and the MCP client it injects so sandbox code can call tools is itself a Python script. Python inside the sandbox is the grain of the tool, not a preference. Stdlib-only keeps `python3 scripts/probe_catalog.py` runnable by a judge with nothing installed, which is the claim the README opens with. |
+| Sandbox code | **Python 3.11+, standard library only** | The harness runs Code Mode scripts with `python3`, and the MCP client it injects so sandbox code can call tools is itself a Python script. Python inside the sandbox is the grain of the tool, not a preference. Stdlib-only keeps `python3 scripts/probe_catalog.py` runnable by a judge with nothing installed, which is the claim the README opens with. |
 | MCP server | **TypeScript on Node 22+**, `@modelcontextprotocol/sdk` ^1.29.0, `zod` for tool schemas | Node 22 is the harness's own `engines` floor. The SDK major matches the `mcp==1.29.0` the sandbox client pins, so both ends of Code Mode speak the same protocol version. Zod is what the harness validates its own specs with. |
 | UI shell | **React 19, Vite**, `@truefoundry/trueforge-ui` 0.2.4 | The SDK's peer range is React 18 or 19 with `@assistant-ui/react` ^0.14.24. Vite because the shell is one page and a bundler is all it needs. |
 | Storage | **Dated JSON under `data/runs/`, canonical**, mirrored into SQLite by the MCP server via `better-sqlite3` | The files are the audit record, are diffable in review, and replay with nothing installed. SQLite is a query index over them, and the harness already carries the same driver. |
@@ -220,12 +220,16 @@ itself splits.
   ├── packages/ui/                   React shell embedding the SDK
   ├── agent/casework.agent.json      AgentSpec: model, skills, mcp_servers, approval
   ├── skills/casework-sop/SKILL.md   registered with the harness skill store
+  ├── tests/                         pytest over the triage and grouping rules
+  ├── pyproject.toml                 dev tools only: ruff, pytest, pyright
+  ├── package.json                   npm workspace over packages/*
   └── docs/SPEC.md
 ```
 
 **Checks that run on every pull request**, so the Q Branch trail is a week of green runs rather
-than one at the end: `ruff check`, `pytest`, `biome ci`, `tsc --noEmit`, `vitest run`, and the
-Qodo review itself. The daily run capture is a local command while the repository has no remote;
+than one at the end: `ruff check`, `ruff format --check`, `pytest`, `biome ci`, `eslint`,
+`tsc --noEmit` on both packages, `vitest run`, and the Qodo review itself. `npm run check` runs
+all of them in one command, locally and in CI. The daily run capture is a local command while the repository has no remote;
 it becomes a scheduled workflow the day it gets one.
 
 **Why Code Mode is load-bearing and not decoration.** The catalog CSV alone is **1.12 MB**,
@@ -598,8 +602,8 @@ Sized in files and lines, not in time. Calendar days are the event's, not an eff
 
 | Day | Deliverable | Size |
 |---|---|---|
-| 08-24 | Public remote, licence, **Qodo installed on the first PR**, AI-use disclosure in README, `probe_catalog.py` with catalog triage, cause resolution, grouping, day counter and replay, first real run committed | ~300 LOC, 5 files |
-| 08-25 | npm workspace, lint and test config per section 4, CI running all five checks, `casework-mcp` skeleton, catalog and probe tools, Detection and Case persistence, recipient registry with no addresses in it | ~400 LOC, 9 files |
+| 08-24 | Licence, AI-use disclosure in README, `probe_catalog.py` with catalog triage, cause resolution, grouping, run counter and replay, first real run committed, npm workspace and both lint and test toolchains green, 15 tests over the triage and grouping rules | ~450 LOC, 12 files |
+| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`, `casework-mcp` skeleton, catalog and probe tools, Detection and Case persistence, recipient registry with no addresses in it | ~400 LOC, 9 files |
 | 08-26 | `repo.inspect`, `redirect.resolve`, per-case attribution and confidence, the second and third captured runs | ~300 LOC, 4 files |
 | 08-27 | Agent definition, `casework-sop/SKILL.md` registered with the harness skill store, subagent per case, draft generation | ~200 LOC, 3 files |
 | 08-28 | UI: shell plus queue and case screens, per section 11 | ~450 LOC, 8 files |

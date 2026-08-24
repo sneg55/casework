@@ -65,6 +65,20 @@ python3 scripts/probe_catalog.py --replay data/runs/2026-08-24.json
 Runs on file are what the 3-day rule counts, so the day counter is history rather than a
 staged prop.
 
+## Working on it
+
+Node 22+ for the TypeScript packages, Python 3.11+ for the probe, [uv](https://docs.astral.sh/uv/)
+for the Python dev tools. The probe itself needs none of them.
+
+```bash
+npm install          # workspace: packages/mcp, packages/ui
+uv sync              # ruff, pytest, pyright
+npm run check        # biome, eslint, tsc, vitest, ruff, pytest
+```
+
+Layout and the rules that govern changes are in [`CLAUDE.md`](CLAUDE.md); the build design is
+[`docs/SPEC.md`](docs/SPEC.md).
+
 ## What this is not
 
 Alert correlation is a mature commercial category and the grouping step here is the commodity

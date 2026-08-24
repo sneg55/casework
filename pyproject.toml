@@ -1,0 +1,16 @@
+[project]
+name = "casework-probe"
+version = "0.2.0"
+description = "Sandbox-side probe and case builder for Casework"
+requires-python = ">=3.11"
+dependencies = []          # the probe is standard library only, by design
+
+[dependency-groups]
+dev = ["ruff>=0.14", "pytest>=8.3", "pyright>=1.1.390"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]
