@@ -209,6 +209,8 @@ applies inside `packages/mcp/src`.
   in section 6 of the spec. Adding a value is a spec change first.
 - **Every number in the README and the spec comes from the committed run.** Anything measured
   elsewhere says where it came from.
+- **No em or en dashes anywhere**, including the messages this product drafts. `npm run
+  lint:dashes` fails the build on one; use a comma, a colon, a full stop or parentheses.
 
 ### Checks
 

@@ -3,7 +3,7 @@
 import type { Evidence as EvidenceRow } from '../lib/api'
 
 function value(v: unknown): string {
-  if (v === null || v === undefined) return '—'
+  if (v === null || v === undefined) return 'none'
   if (typeof v === 'boolean') return v ? 'yes' : 'no'
   if (typeof v === 'string') return v
   if (typeof v === 'number') return String(v)
@@ -28,7 +28,7 @@ function seen(row: EvidenceRow): string {
   return [
     value(row.observation['status_class']),
     value(row.observation['http_code']),
-    type === '—' || type === '' ? 'no content type' : type,
+    type === 'none' || type === '' ? 'no content type' : type,
     `${value(row.observation['latency_ms'])} ms`,
   ].join('  ·  ')
 }

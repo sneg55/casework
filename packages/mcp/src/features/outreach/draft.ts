@@ -39,8 +39,8 @@ function observedLines(store: Store, view: CaseView, runDate: string): string[] 
   const members = view.members.filter((m) => m.role === 'member').map((m) => m.feed_id)
   return detectionsFor(runDate, members).map(
     (d) =>
-      `  ${d.provider} — ${String(d.http_code ?? 'no response')}` +
-      `${d.content_type === '' ? '' : ` ${d.content_type}`} — ${d.observed_at}\n    ${d.url}`,
+      `  ${d.provider}: ${String(d.http_code ?? 'no response')}` +
+      `${d.content_type === '' ? '' : `, ${d.content_type}`}, observed ${d.observed_at}\n    ${d.url}`,
   )
 }
 
