@@ -164,7 +164,8 @@ job it exists for, and the project stops working if you remove any of them.
   ├── Skill (git-backed)          casework-sop/SKILL.md
   │                               the 3-day rule, attribution rules, suppression rules,
   │                               message tone and escalation ladder
-  ├── Sandbox + Code Mode         probe_catalog.py, detection.py, cases.py
+  ├── Sandbox + Code Mode         probe_catalog.py, detection.py, cases.py,
+  │                               case_document.py, catalog_query.py
   │                               256 feeds, 12 at a time, range-limited reads and
   │                               magic-byte checks. Returns a table, never the payloads.
   ├── Subagents                   one per candidate case, each testing a single
@@ -215,6 +216,8 @@ itself splits.
   ├── scripts/probe_catalog.py       sandbox code, stdlib only: CLI, capture, report
   ├── scripts/detection.py           one feed, one observation
   ├── scripts/cases.py               triage, grouping, cause and party resolution
+  ├── scripts/case_document.py       the machine-readable form of a run
+  ├── scripts/catalog_query.py       catalog summary, or the rows asked for
   ├── data/runs/<date>.json          one capture per run, committed
   ├── packages/mcp/                  casework-mcp, TypeScript, stdio
   ├── packages/ui/                   React shell embedding the SDK
@@ -258,9 +261,9 @@ right place; it is not a claim that mail was sent.
 
 | Tool | Reads/writes | Notes |
 |---|---|---|
-| `catalog.load(jurisdiction)` | read | Fetches the public catalog CSV, returns rows with provider, url, auth type, **`status`, `redirect.id`**, and contact presence. **Never returns contact addresses.** |
+| `catalog.load(jurisdiction, feed_ids?)` | read | Reads the public catalog CSV in the sandbox. Without `feed_ids` it returns a **summary**: counts by status and authentication type, redirects, contacts on file, top hosts. With them it returns those rows: provider, url, auth type, **`status`, `redirect.id`**, contact presence. **Never returns contact addresses**, and never the 1.12 MB CSV. |
 | `probe.run(jurisdiction, feed_ids?)` | read + capture | Delegates to the sandbox script, which fetches nothing but the catalog and the feeds and writes the run to `data/runs/<date>.json`. Returns detections only. `--no-capture` reports without writing, for a re-probe during attribution. |
-| `cases.build(run_date)` | write | Triage, clustering, cause resolution, day counts. Idempotent per run date. |
+| `cases.build(run_date?)` | write | Triage, clustering, cause resolution and run counts, then persistence. **Delegates to the sandbox** (`probe_catalog.py --replay <run> --json`) rather than reimplementing any of it, so the rules stay in the one module section 6 names. Fetches nothing. Idempotent per run date, because `case_id` is derived from `cause_key`. |
 | `cases.list(state)` | read | Queue for the UI, suppressed rows included with their reason. |
 | `evidence.get(case_id)` | read | Every observation backing a case, with timestamps. |
 | `repo.inspect(host, path)` | read | GitHub API: does the repo exist, is it archived, when was it pushed, what paths exist. The attribution step for code-hosted feeds. |
@@ -342,9 +345,11 @@ its HTTP family, and anything left over is `host_unreachable`. No status class i
 none reaches a case without a kind.
 
 Detections persist as one JSON file per run date under `data/runs/`, which is both the audit
-record and the input to the run counter. The MCP server mirrors them into the harness's SQLite
-for querying; the files stay canonical so a run can be replayed with nothing else installed. A
-date holds exactly one file, the last run of that date.
+record and the input to the run counter. A date holds exactly one file, the last run of that
+date. The MCP server mirrors what it needs into `data/casework.sqlite`, which is derived,
+gitignored and rebuildable from the run files by `cases.build`; the closed enums are repeated
+there as CHECK constraints, so an unknown cause kind or state cannot reach a table even if a
+tool schema is loosened later.
 
 **Identity.** `case_id` is the first 12 hex characters of the SHA-1 of `cause_key`. It is
 derived, not allocated, so the same cause is the same case tomorrow and `cases.build` is
@@ -603,7 +608,7 @@ Sized in files and lines, not in time. Calendar days are the event's, not an eff
 | Day | Deliverable | Size |
 |---|---|---|
 | 08-24 | Licence, AI-use disclosure in README, `probe_catalog.py` with catalog triage, cause resolution, grouping, run counter and replay, first real run committed, npm workspace and both lint and test toolchains green, 15 tests over the triage and grouping rules | ~450 LOC, 12 files |
-| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`, `casework-mcp` skeleton, catalog and probe tools, Detection and Case persistence, recipient registry with no addresses in it | ~400 LOC, 9 files |
+| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`. Landed early on 08-24: `casework-mcp` over stdio with `catalog.load`, `probe.run`, `cases.build`, `cases.list`, `evidence.get` and `recipient.lookup`, SQLite persistence with the case state machine, the recipient registry with no addresses in it, and 17 tests including an end-to-end MCP round trip | ~900 LOC, 14 files |
 | 08-26 | `repo.inspect`, `redirect.resolve`, per-case attribution and confidence, the second and third captured runs | ~300 LOC, 4 files |
 | 08-27 | Agent definition, `casework-sop/SKILL.md` registered with the harness skill store, subagent per case, draft generation | ~200 LOC, 3 files |
 | 08-28 | UI: shell plus queue and case screens, per section 11 | ~450 LOC, 8 files |

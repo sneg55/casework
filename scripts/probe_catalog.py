@@ -17,6 +17,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
+from case_document import case_document
 from cases import CREDENTIAL_REASON, build_cases, streaks, triage
 from detection import UA, probe
 
@@ -80,6 +81,14 @@ def report(detections, run_dir, run_date, live):
     print(f"\n  status classes: {dict(Counter(d['status_class'] for d in detections))}")
 
 
+def emit(detections, run_dir, run_date, live, as_json):
+    """One report, two audiences: a person reads the table, cases.build reads the JSON."""
+    if as_json:
+        print(json.dumps(case_document(detections, run_dir, run_date), indent=1))
+    else:
+        report(detections, run_dir, run_date, live=live)
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--jurisdiction", default="California")
@@ -96,11 +105,16 @@ def main():
     p.add_argument("--run-dir", default="data/runs")
     p.add_argument("--no-capture", action="store_true", help="report without writing the run")
     p.add_argument("--replay", help="report a captured run instead of fetching anything")
+    p.add_argument(
+        "--json",
+        action="store_true",
+        help="emit the case document on stdout instead of the human report",
+    )
     a = p.parse_args()
 
     if a.replay:
         detections = json.loads(Path(a.replay).read_text())
-        report(detections, a.run_dir, detections[0]["run_date"], live=False)
+        emit(detections, a.run_dir, detections[0]["run_date"], live=False, as_json=a.json)
         return
 
     run_date = datetime.now(UTC).date().isoformat()
@@ -109,16 +123,16 @@ def main():
     with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
         detections = list(ex.map(lambda r: probe(r, a.timeout, a.attempts, run_date), rows))
 
-    report(
-        detections, a.run_dir, run_date, live=True
-    )  # before it lands, so it is not its own history
+    # before it lands, so it is not its own history
+    emit(detections, a.run_dir, run_date, live=True, as_json=a.json)
     if a.no_capture:
         return
     run_dir = Path(a.run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     out = run_dir / f"{run_date}.json"
     out.write_text(json.dumps(detections, indent=1))
-    print(f"  captured {out}\n")
+    if not a.json:
+        print(f"  captured {out}\n")
 
 
 if __name__ == "__main__":
