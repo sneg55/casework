@@ -30,7 +30,16 @@ beforeAll(async () => {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair()
   client = new Client({ name: 'test', version: '0' })
   await Promise.all([createServer(store).connect(serverSide), client.connect(clientSide)])
+  await call('cases.build')
 })
+
+/** The first case in the queue, which on the committed run is the LACMTA one. */
+async function firstCaseId(): Promise<string> {
+  const queue = z
+    .object({ cases: z.array(z.object({ case_id: z.string() })) })
+    .parse(await call('cases.list'))
+  return queue.cases[0]?.case_id ?? ''
+}
 
 afterAll(async () => {
   await client.close()
@@ -39,17 +48,71 @@ afterAll(async () => {
 })
 
 describe('casework-mcp', () => {
-  it('offers the read tools and nothing that can send', async () => {
-    const names = (await client.listTools()).tools.map((t) => t.name).sort()
-    expect(names).toEqual([
+  it('offers every tool the spec names, and marks exactly one as leaving the building', async () => {
+    const tools = (await client.listTools()).tools
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      'cases.attribute',
       'cases.build',
       'cases.list',
       'catalog.load',
       'evidence.get',
+      'outreach.decide',
+      'outreach.draft',
+      'outreach.review',
+      'outreach.revise',
+      'outreach.send',
       'probe.run',
       'recipient.lookup',
+      'redirect.resolve',
+      'repo.inspect',
+      'tls.inspect',
     ])
-    expect(names).not.toContain('outreach.send')
+    const destructive = tools.filter((t) => t.annotations?.destructiveHint === true)
+    expect(destructive.map((t) => t.name)).toEqual(['outreach.send'])
+  })
+
+  it('refuses to send a case that has not cleared the three-run rule', async () => {
+    const refusal = z
+      .object({ refused: z.string() })
+      .parse(await call('outreach.send', { case_id: await firstCaseId() }))
+    expect(refusal.refused).toContain('3-day rule')
+  })
+
+  it('refuses to send an attributed, drafted case with no channel on file', async () => {
+    const caseId = await firstCaseId()
+    // Fast-forward the counter the way three more captured runs would.
+    store.db.prepare('UPDATE cases SET consecutive_runs = 3').run()
+    store.db.prepare("UPDATE cases SET party_kind = 'repository' WHERE case_id = ?").run(caseId)
+    await call('outreach.draft', { case_id: caseId })
+    const refusal = z
+      .object({ refused: z.string() })
+      .parse(await call('outreach.send', { case_id: caseId }))
+    expect(refusal.refused).toContain('no channel on file')
+    expect(store.getCase(caseId)?.state).not.toBe('approved')
+  })
+
+  it('drafts a message that carries the observations and no address', async () => {
+    const caseId = await firstCaseId()
+    const draft = z
+      .object({ subject: z.string(), body: z.string(), recipient_kind: z.string() })
+      .parse(await call('outreach.draft', { case_id: caseId }))
+    expect(draft.recipient_kind).toBe('repository')
+    expect(draft.subject).toContain('404')
+    expect(draft.body).toContain('raw.githubusercontent.com/LACMTA')
+    expect(draft.body).not.toMatch(/[\w.]+@[\w.]+/)
+  })
+
+  it('keeps the previous draft when one is revised', async () => {
+    const caseId = await firstCaseId()
+    await call('outreach.revise', { case_id: caseId, subject: 'Edited', body: 'Shorter.' })
+    const current = z
+      .object({ subject: z.string() })
+      .parse(await call('outreach.review', { case_id: caseId }))
+    expect(current.subject).toBe('Edited')
+    const kept = store.db
+      .prepare('SELECT COUNT(*) AS n FROM drafts WHERE case_id = ?')
+      .get(caseId) as { n: number }
+    expect(kept.n).toBeGreaterThan(1)
   })
 
   it('builds the committed run and answers the queue with causes, not feeds', async () => {
@@ -89,10 +152,7 @@ describe('casework-mcp', () => {
   })
 
   it('shows the evidence behind a case and never a contact address', async () => {
-    const queue = z
-      .object({ cases: z.array(z.object({ case_id: z.string() })) })
-      .parse(await call('cases.list'))
-    const caseId = queue.cases[0]?.case_id ?? ''
+    const caseId = await firstCaseId()
     const view = await call('evidence.get', { case_id: caseId })
     const parsed = z
       .object({
@@ -109,12 +169,9 @@ describe('casework-mcp', () => {
   })
 
   it('reports a case as unattributed while no channel exists for its party', async () => {
-    const queue = z
-      .object({ cases: z.array(z.object({ case_id: z.string() })) })
-      .parse(await call('cases.list'))
     const lookup = z
       .object({ party_kind: z.string(), resolvable: z.boolean() })
-      .parse(await call('recipient.lookup', { case_id: queue.cases[0]?.case_id ?? '' }))
+      .parse(await call('recipient.lookup', { case_id: await firstCaseId() }))
     expect(lookup.party_kind).toBe('repository')
     expect(lookup.resolvable).toBe(false)
   })

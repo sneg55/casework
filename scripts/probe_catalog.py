@@ -81,9 +81,12 @@ def report(detections, run_dir, run_date, live):
     print(f"\n  status classes: {dict(Counter(d['status_class'] for d in detections))}")
 
 
-def emit(detections, run_dir, run_date, live, as_json):
-    """One report, two audiences: a person reads the table, cases.build reads the JSON."""
-    if as_json:
+def emit(detections, run_dir, run_date, live, as_json, raw=False):
+    """One report, three audiences: a person reads the table, cases.build reads the case
+    document, and attribution re-probes a handful of feeds and reads the detections."""
+    if raw:
+        print(json.dumps(detections, indent=1))
+    elif as_json:
         print(json.dumps(case_document(detections, run_dir, run_date), indent=1))
     else:
         report(detections, run_dir, run_date, live=live)
@@ -110,11 +113,23 @@ def main():
         action="store_true",
         help="emit the case document on stdout instead of the human report",
     )
+    p.add_argument(
+        "--detections",
+        action="store_true",
+        help="emit the raw detections on stdout, for a bounded re-probe during attribution",
+    )
     a = p.parse_args()
 
     if a.replay:
         detections = json.loads(Path(a.replay).read_text())
-        emit(detections, a.run_dir, detections[0]["run_date"], live=False, as_json=a.json)
+        emit(
+            detections,
+            a.run_dir,
+            detections[0]["run_date"],
+            live=False,
+            as_json=a.json,
+            raw=a.detections,
+        )
         return
 
     run_date = datetime.now(UTC).date().isoformat()
@@ -124,14 +139,14 @@ def main():
         detections = list(ex.map(lambda r: probe(r, a.timeout, a.attempts, run_date), rows))
 
     # before it lands, so it is not its own history
-    emit(detections, a.run_dir, run_date, live=True, as_json=a.json)
+    emit(detections, a.run_dir, run_date, live=True, as_json=a.json, raw=a.detections)
     if a.no_capture:
         return
     run_dir = Path(a.run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     out = run_dir / f"{run_date}.json"
     out.write_text(json.dumps(detections, indent=1))
-    if not a.json:
+    if not a.json and not a.detections:
         print(f"  captured {out}\n")
 
 

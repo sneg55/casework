@@ -4,8 +4,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import { CASE_STATES } from './constants/enums.js'
+import { attributeCase } from './features/attribution/attribute.js'
+import { resolveRedirect } from './features/attribution/redirectResolve.js'
+import { inspectRepo } from './features/attribution/repoInspect.js'
+import { inspectCertificate } from './features/attribution/tlsInspect.js'
 import { caseView, queueRow } from './features/cases/view.js'
 import { queryCatalog } from './features/catalog/catalogQuery.js'
+import { draftFor, latestDraft, reviseDraft } from './features/outreach/draft.js'
+import { decide, sendCase } from './features/outreach/send.js'
 import { isResolvable, loadRegistry } from './features/recipients/registry.js'
 import { latestRunDate, runPath } from './services/runFiles.js'
 import { replayRun, runProbe } from './services/sandbox.js'
@@ -135,6 +141,145 @@ export function createServer(store: Store): McpServer {
         resolvable: view.recipient_resolvable,
       })
     },
+  )
+
+  server.registerTool(
+    'repo.inspect',
+    {
+      title: 'Read a code host repository',
+      description:
+        'Does the repository exist, is it public, is it archived, when was it pushed, and ' +
+        'which of the directories the catalog references are present today.',
+      inputSchema: {
+        owner: z.string(),
+        repo: z.string(),
+        expected_paths: z.array(z.string()).default([]),
+      },
+      annotations: { ...READ_ONLY, openWorldHint: true },
+    },
+    async ({ owner, repo, expected_paths }) =>
+      reply(await inspectRepo(owner, repo, expected_paths)),
+  )
+
+  server.registerTool(
+    'tls.inspect',
+    {
+      title: 'Read a certificate',
+      description:
+        'Subject, issuer and expiry for a host, so a TLS failure can be attributed to the ' +
+        'certificate holder rather than to the agency whose feed it is.',
+      inputSchema: { host: z.string() },
+      annotations: { ...READ_ONLY, openWorldHint: true },
+    },
+    async ({ host }) => reply(await inspectCertificate(host)),
+  )
+
+  server.registerTool(
+    'redirect.resolve',
+    {
+      title: 'Follow a catalog redirect',
+      description:
+        'Follows a retired entry to the replacement the catalog names and probes it, so ' +
+        '"the catalog already handled this" is an observation rather than an assumption.',
+      inputSchema: { feed_id: z.string(), jurisdiction: z.string().default('California') },
+      annotations: { ...READ_ONLY, openWorldHint: true },
+    },
+    async ({ feed_id, jurisdiction }) => reply(await resolveRedirect(feed_id, jurisdiction)),
+  )
+
+  server.registerTool(
+    'cases.attribute',
+    {
+      title: 'Attribute one case',
+      description:
+        'Runs the investigation for this cause kind, writes what it read as evidence, and ' +
+        'records the party and a counted confidence from 0 to 3. A case it cannot attribute ' +
+        'stays unattributed rather than guessing a recipient.',
+      inputSchema: { case_id: z.string(), run_date: z.string().optional() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    },
+    async ({ case_id, run_date }) => {
+      const result = await attributeCase(store, case_id, run_date)
+      return result === undefined ? fail(`No such case: ${case_id}`) : reply(result)
+    },
+  )
+
+  server.registerTool(
+    'outreach.draft',
+    {
+      title: 'Draft the message',
+      description:
+        'Composes the message for a case from its evidence: what the catalog asks for, what ' +
+        'is actually there, and the question that closes it. Not gated, and it sends nothing.',
+      inputSchema: { case_id: z.string(), run_date: z.string().optional() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    ({ case_id, run_date }) => {
+      const draft = draftFor(store, case_id, run_date)
+      return draft === undefined ? fail(`No such case: ${case_id}`) : reply(draft)
+    },
+  )
+
+  server.registerTool(
+    'outreach.revise',
+    {
+      title: 'Rewrite a draft',
+      description:
+        'Stores an edited subject and body as a new draft. The previous one is kept, and the ' +
+        'latest is what outreach.send reads. Facts belong to the evidence, not to the wording.',
+      inputSchema: { case_id: z.string(), subject: z.string(), body: z.string() },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    ({ case_id, subject, body }) => reply(reviseDraft(store, case_id, subject, body)),
+  )
+
+  server.registerTool(
+    'outreach.review',
+    {
+      title: 'Read the current draft',
+      description: 'The latest draft for a case, with no side effects.',
+      inputSchema: { case_id: z.string() },
+      annotations: READ_ONLY,
+    },
+    ({ case_id }) => {
+      const draft = latestDraft(store, case_id)
+      return draft === undefined ? fail(`No draft for ${case_id}`) : reply(draft)
+    },
+  )
+
+  server.registerTool(
+    'outreach.decide',
+    {
+      title: 'Reject or snooze a case',
+      description:
+        'Records a human decision that is not an approval. Rejecting closes the case; ' +
+        'snoozing defers it to a date, after which it returns to the queue as ready.',
+      inputSchema: {
+        case_id: z.string(),
+        action: z.enum(['reject', 'snooze']),
+        actor: z.string().default('analyst'),
+        note: z.string().optional(),
+        until: z.string().optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    ({ case_id, action, actor, note, until }) =>
+      reply(decide(store, { caseId: case_id, action, actor, note, until })),
+  )
+
+  server.registerTool(
+    'outreach.send',
+    {
+      title: 'Send the message',
+      description:
+        'THE GATED TOOL. Renders the approved message to a real recipient and records the ' +
+        'decision. Refuses unless the case is past the 3-day rule, attributed, drafted, not ' +
+        'already acted on, and has a channel on file. No transport is configured for the ' +
+        'demo, so the message is written to data/outbox and nothing leaves the machine.',
+      inputSchema: { case_id: z.string(), actor: z.string().default('analyst') },
+      annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    },
+    ({ case_id, actor }) => reply(sendCase(store, case_id, actor)),
   )
 
   return server
