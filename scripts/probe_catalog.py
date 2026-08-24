@@ -5,23 +5,35 @@ Reads the public Mobility Database catalog CSV. No credentials, no API key.
 Writes one dated detection file per run to data/runs/ and prints the case summary.
 Prior runs in that directory give each cause its consecutive-failure count.
 """
-import argparse, csv, io, json, os, sys, urllib.request
-import concurrent.futures as cf
-from collections import Counter
-from datetime import datetime, timezone
 
-from cases import build_cases, streaks, triage, CREDENTIAL_REASON
-from detection import probe, UA
+import argparse
+import concurrent.futures as cf
+import csv
+import io
+import json
+import sys
+import urllib.request
+from collections import Counter
+from datetime import UTC, datetime
+from pathlib import Path
+
+from cases import CREDENTIAL_REASON, build_cases, streaks, triage
+from detection import UA, probe
 
 CATALOG = "https://bit.ly/catalogs-csv"
 
 
 def load_catalog(jurisdiction, feed_ids=None):
-    raw = urllib.request.urlopen(
-        urllib.request.Request(CATALOG, headers={"User-Agent": UA}), timeout=60
-    ).read().decode("utf-8", "replace")
+    raw = (
+        urllib.request.urlopen(
+            urllib.request.Request(CATALOG, headers={"User-Agent": UA}), timeout=60
+        )
+        .read()
+        .decode("utf-8", "replace")
+    )
     rows = [
-        r for r in csv.DictReader(io.StringIO(raw))
+        r
+        for r in csv.DictReader(io.StringIO(raw))
         if r.get("data_type") == "gtfs"
         and r.get("location.subdivision_name") == jurisdiction
         and r.get("urls.direct_download")
@@ -43,21 +55,27 @@ def report(detections, run_dir, run_date, live):
 
     print(f"\n  {'live run' if live else 'replay'} {run_date}, {prior_runs} prior run(s) on file")
     print(f"  checked {len(in_scope)}   healthy {len(healthy)}   failing {len(failing)}")
-    print(f"  suppressed: {len(credential)} declare a credential, "
-          f"{len(by_catalog)} the catalog has already retired or not yet shipped")
+    print(
+        f"  suppressed: {len(credential)} declare a credential, "
+        f"{len(by_catalog)} the catalog has already retired or not yet shipped"
+    )
     print(f"  actionable failures {len(failing) - len(by_catalog)}\n")
     for c in cases:
         n = len(c["members"])
-        print(f"  {n:>3} {'agencies' if n != 1 else 'agency  '}  {c['cause_key'].split('|')[0]:52.52} "
-              f"{c['cause_kind']:22} -> {c['proposed_party']:14} "
-              f"run {days[c['cause_key']]}/3")
+        print(
+            f"  {n:>3} {'agencies' if n != 1 else 'agency  '}  {c['cause_key'].split('|')[0]:52.52} "
+            f"{c['cause_kind']:22} -> {c['proposed_party']:14} "
+            f"run {days[c['cause_key']]}/3"
+        )
         for reason, k in Counter(triage(d) for d in c["corroborating"]).most_common():
             print(f"      +{k} corroborating: {reason}")
     grouped = sum(len(c["members"]) for c in cases)
     ready = [c for c in cases + singles if days[c["cause_key"]] >= 3]
     print(f"\n  grouped {grouped} failures into {len(cases)} cases; {len(singles)} individual")
-    print(f"  candidate causes {len(cases) + len(singles)}, against {len(failing)} "
-          f"tickets a per-feed view would open")
+    print(
+        f"  candidate causes {len(cases) + len(singles)}, against {len(failing)} "
+        f"tickets a per-feed view would open"
+    )
     print(f"  past the 3-day rule, so drafted: {len(ready)}")
     print(f"\n  status classes: {dict(Counter(d['status_class'] for d in detections))}")
 
@@ -68,32 +86,38 @@ def main():
     p.add_argument("--feed-ids", help="comma-separated mdb_source_id list, default all")
     p.add_argument("--timeout", type=int, default=18)
     p.add_argument("--workers", type=int, default=12)
-    p.add_argument("--attempts", type=int, default=2, choices=(1, 2),
-                   help="a second attempt is made on transport failures only")
+    p.add_argument(
+        "--attempts",
+        type=int,
+        default=2,
+        choices=(1, 2),
+        help="a second attempt is made on transport failures only",
+    )
     p.add_argument("--run-dir", default="data/runs")
     p.add_argument("--no-capture", action="store_true", help="report without writing the run")
     p.add_argument("--replay", help="report a captured run instead of fetching anything")
     a = p.parse_args()
 
     if a.replay:
-        with open(a.replay) as fh:
-            detections = json.load(fh)
+        detections = json.loads(Path(a.replay).read_text())
         report(detections, a.run_dir, detections[0]["run_date"], live=False)
         return
 
-    run_date = datetime.now(timezone.utc).date().isoformat()
+    run_date = datetime.now(UTC).date().isoformat()
     rows = load_catalog(a.jurisdiction, a.feed_ids.split(",") if a.feed_ids else None)
     print(f"catalog: {len(rows)} {a.jurisdiction} GTFS feeds", file=sys.stderr)
     with cf.ThreadPoolExecutor(max_workers=a.workers) as ex:
         detections = list(ex.map(lambda r: probe(r, a.timeout, a.attempts, run_date), rows))
 
-    report(detections, a.run_dir, run_date, live=True)   # before it lands, so it is not its own history
+    report(
+        detections, a.run_dir, run_date, live=True
+    )  # before it lands, so it is not its own history
     if a.no_capture:
         return
-    os.makedirs(a.run_dir, exist_ok=True)
-    out = os.path.join(a.run_dir, f"{run_date}.json")
-    with open(out, "w") as fh:
-        json.dump(detections, fh, indent=1)
+    run_dir = Path(a.run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    out = run_dir / f"{run_date}.json"
+    out.write_text(json.dumps(detections, indent=1))
     print(f"  captured {out}\n")
 
 

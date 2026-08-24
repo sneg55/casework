@@ -4,7 +4,9 @@ what kind of fault it is, and who to propose writing to.
 Every response-class to cause-kind decision lives in this module, in CAUSE_KIND for the
 named classes and resolve_cause() for the ones that need the group to decide.
 """
-import json, os
+
+import json
+from pathlib import Path
 
 # Hosts where the path, not the host, identifies who can restore a missing file.
 CODE_HOSTS = {"raw.githubusercontent.com", "gitlab.com", "codeberg.org", "bitbucket.org"}
@@ -49,8 +51,11 @@ def triage(d):
     if d["healthy"]:
         return None
     if d["catalog_status"] in RETIRED:
-        return ("catalog already re-points this entry" if d["redirect_id"]
-                else "catalog marks this entry retired, no replacement recorded")
+        return (
+            "catalog already re-points this entry"
+            if d["redirect_id"]
+            else "catalog marks this entry retired, no replacement recorded"
+        )
     if d["catalog_status"] == "development":
         return "catalog marks this entry pre-production"
     return None
@@ -106,8 +111,9 @@ def build_cases(detections):
         if not g["members"]:
             continue
         host, status_class = key.split("|")[0], key.split("|")[-1]
-        kind, party = resolve_cause(host.split("/")[0], status_class,
-                                    g["members"] + g["corroborating"])
+        kind, party = resolve_cause(
+            host.split("/")[0], status_class, g["members"] + g["corroborating"]
+        )
         case = {
             "cause_key": key,
             "cause_kind": kind,
@@ -129,12 +135,11 @@ def build_cases(detections):
 def streaks(run_dir, run_date, keys):
     """Consecutive runs each cause_key has failed, this one included. Counts run files
     present, not calendar days, so a day with no run cannot fake continuity."""
-    dates = sorted(f[:-5] for f in os.listdir(run_dir)
-                   if f.endswith(".json")) if os.path.isdir(run_dir) else []
+    root = Path(run_dir)
+    files = sorted(root.glob("*.json")) if root.is_dir() else []
     history = []
-    for date in (d for d in dates if d < run_date):
-        with open(os.path.join(run_dir, f"{date}.json")) as fh:
-            prior = json.load(fh)
+    for path in (f for f in files if f.stem < run_date):
+        prior = json.loads(path.read_text())
         history.append({cause_key(d) for d in prior if not d["healthy"] and not triage(d)})
     out = {}
     for k in keys:

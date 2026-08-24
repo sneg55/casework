@@ -7,5 +7,16 @@ registry.local.json
 # drafted messages, written by the approval gate
 data/outbox/
 
+# personal, machine-local instructions
+CLAUDE.local.md
+
+# self-improvement ledger, appended to by the hooks
+.harness/ledger.jsonl
+
 __pycache__/
 .venv/
+node_modules/
+dist/
+build/
+coverage/
+.env

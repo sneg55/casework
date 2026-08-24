@@ -2,12 +2,18 @@
 
 Standard library only, so a judge can run the probe with nothing installed.
 """
-import socket, ssl, time, urllib.error, urllib.request
-from datetime import datetime, timezone
+
+import socket
+import ssl
+import time
+import urllib.error
+import urllib.request
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 UA = "casework-probe/0.2 (transit feed health; +https://github.com/sneg55/casework)"
 RANGE_BYTES = 2048
+ALLOWED_SCHEMES = ("http", "https")
 TRANSIENT = {"timeout", "network", "dns_failure"}
 
 
@@ -20,7 +26,7 @@ def classify(exc, resp_bytes, headers, auth_type):
     if exc is not None:
         if isinstance(exc, urllib.error.HTTPError):
             if exc.code in (401, 403) and str(auth_type) not in ("0", "", "None"):
-                return "auth_declared", True          # catalog says a key is required
+                return "auth_declared", True  # catalog says a key is required
             if exc.code in (401, 403):
                 return "auth_rejected", False
             if exc.code == 404:
@@ -45,14 +51,18 @@ def classify(exc, resp_bytes, headers, auth_type):
 
 
 def fetch(url, timeout):
-    req = urllib.request.Request(
+    """A catalog row is third-party input, so the scheme is checked before anything
+    opens it. Nothing but http and https is fetched, ever."""
+    started = time.monotonic()
+    if urlparse(url).scheme not in ALLOWED_SCHEMES:
+        return ValueError("unsupported URL scheme"), b"", {}, None, 0.0
+    req = urllib.request.Request(  # noqa: S310 - scheme checked above
         url, headers={"User-Agent": UA, "Range": f"bytes=0-{RANGE_BYTES - 1}"}
     )
-    started = time.monotonic()
     try:
-        r = urllib.request.urlopen(req, timeout=timeout)
+        r = urllib.request.urlopen(req, timeout=timeout)  # noqa: S310 - scheme checked above
         return None, r.read(RANGE_BYTES), r.headers, r.status, time.monotonic() - started
-    except Exception as e:                              # noqa: BLE001 - classified above
+    except Exception as e:  # noqa: BLE001 - classified above
         return e, b"", {}, getattr(e, "code", None), time.monotonic() - started
 
 
@@ -79,7 +89,7 @@ def probe(row, timeout, attempts, run_date):
     parts = urlparse(url)
     return {
         "run_date": run_date,
-        "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "observed_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "feed_id": row.get("mdb_source_id"),
         "provider": row["provider"],
         "url": url,
@@ -96,5 +106,5 @@ def probe(row, timeout, attempts, run_date):
         "auth_type": row.get("urls.authentication_type") or "",
         "catalog_status": row.get("status") or "",
         "redirect_id": row.get("redirect.id") or "",
-        "contact_on_file": bool(row.get("feed_contact_email")),   # never the address itself
+        "contact_on_file": bool(row.get("feed_contact_email")),  # never the address itself
     }
