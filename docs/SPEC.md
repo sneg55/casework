@@ -515,7 +515,7 @@ reaches `ready` only with a `party_kind` the registry knows and evidence naming 
 | `content_type_mismatch` | Fetch once more, record content type and byte prefix | `host_operator`. The platform is serving the wrong thing under a `.zip` URL. |
 | `deprecated_service` | `redirect.resolve` on the retired siblings: are their replacements healthy, and does the surviving entry have one | `catalog`, action is re-point. Contacting the agencies is the wrong move. |
 | `tls_expired` | `tls.inspect`: certificate subject, issuer and expiry | `cert_holder`, which is usually a vendor and not the agency. |
-| `redirect_unresolved` / `host_unreachable` | Re-fetch, record the redirect chain or the transport error | `host_operator`. |
+| `redirect_unresolved` / `host_unreachable` / `auth_rejected` | Re-fetch, record the redirect chain or the transport error. One run cannot tell a dead host from a flap, and the second fetch is what separates them | `host_operator`. `auth_rejected` is a 401 or 403 the catalog declared no key for; the ones it did declare are suppressed by section 7 and never become cases. |
 | `path_not_found` | 404 on a host that is otherwise serving | `agency`, and the subagent reassigns to `host_operator` when the host is not the agency's own. |
 | `individual` | None until the 3-day rule fires | `agency`, and only then. |
 
