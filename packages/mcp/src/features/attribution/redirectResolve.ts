@@ -1,15 +1,8 @@
 // redirect.resolve. A retired catalog entry names its replacement; this checks that the
 // replacement is actually serving, which is what turns "the catalog already handled it"
 // from an assumption into an observation.
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
-import { type Detection, detectionsSchema } from '../../schemas/caseDocument.js'
-import { env } from '../../utils/env.js'
+import { reprobeFeeds } from '../../services/sandbox.js'
 import { queryCatalog } from '../catalog/catalogQuery.js'
-
-const run = promisify(execFile)
-const PROBE_TIMEOUT_MS = 60_000
 
 export interface RedirectFacts {
   from_feed_id: string
@@ -18,23 +11,6 @@ export interface RedirectFacts {
   replacement_status_class: string | null
   replacement_healthy: boolean | null
   note: string
-}
-
-async function probeOne(jurisdiction: string, feedId: string): Promise<Detection | undefined> {
-  const { stdout } = await run(
-    env.CASEWORK_PYTHON,
-    [
-      env.CASEWORK_PROBE,
-      '--jurisdiction',
-      jurisdiction,
-      '--feed-ids',
-      feedId,
-      '--no-capture',
-      '--detections',
-    ],
-    { timeout: PROBE_TIMEOUT_MS },
-  )
-  return detectionsSchema.parse(JSON.parse(stdout))[0]
 }
 
 export async function resolveRedirect(
@@ -67,7 +43,7 @@ export async function resolveRedirect(
     }
   }
 
-  const detection = await probeOne(jurisdiction, row.redirect_id)
+  const [detection] = await reprobeFeeds([row.redirect_id], jurisdiction)
   if (detection === undefined) {
     // The replacement is outside this jurisdiction's slice, so it was not probed.
     return {

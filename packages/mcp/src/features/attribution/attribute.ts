@@ -3,6 +3,7 @@
 // of the spec and each one is a fact this function checked.
 import { MAX_CONFIDENCE, PARTY_FOR_CAUSE, type PartyKind } from '../../constants/enums.js'
 import { detectionsFor, latestRunDate } from '../../services/runFiles.js'
+import { reprobeFeeds } from '../../services/sandbox.js'
 import type { Store } from '../../services/store.js'
 import { type CaseView, caseView } from '../cases/view.js'
 import { resolveRedirect } from './redirectResolve.js'
@@ -22,8 +23,11 @@ export interface Attribution {
 /** Enough siblings to show the pattern; the rest are the same fact repeated. */
 const SAMPLE_SIBLINGS = 3
 
+/** A group is one host's behaviour, so a few members settle it. */
+const SAMPLE_MEMBERS = 5
+
 interface EvidenceRow {
-  kind: 'repo' | 'tls' | 'redirect'
+  kind: 'repo' | 'tls' | 'redirect' | 'http'
   observation: unknown
   source_url: string | null
 }
@@ -71,6 +75,104 @@ async function investigateRetired(
   }
 }
 
+/** The re-probe both content and transport investigations run, as one http evidence row each. */
+async function reprobeMembers(memberIds: readonly string[]): Promise<EvidenceRow[]> {
+  const fresh = await reprobeFeeds(memberIds.slice(0, SAMPLE_MEMBERS))
+  return fresh.map((d) => ({
+    kind: 'http' as const,
+    observation: {
+      feed_id: d.feed_id,
+      url: d.url,
+      status_class: d.status_class,
+      http_code: d.http_code,
+      content_type: d.content_type,
+      magic_ok: d.magic_ok,
+      body_prefix: d.body_prefix ?? null,
+      observed_at: d.observed_at,
+    },
+    source_url: d.url,
+  }))
+}
+
+/**
+ * Section 9: fetch once more, record the content type and the byte prefix. A status check
+ * passes on these, so the second look is what turns "the platform is serving the wrong
+ * thing" from a classification into something the message can quote back.
+ */
+async function investigateContent(
+  view: Pick<CaseView, 'locator'>,
+  memberIds: readonly string[],
+): Promise<{ rows: EvidenceRow[]; finding: string }> {
+  const rows = await reprobeMembers(memberIds)
+  if (rows.length === 0) {
+    return { rows, finding: `nothing on ${view.locator} answered the second fetch` }
+  }
+  const types = new Set(
+    rows
+      .map((r) => (r.observation as { content_type: string }).content_type)
+      .filter((t) => t !== ''),
+  )
+  const archives = rows.filter((r) => (r.observation as { magic_ok: boolean }).magic_ok).length
+  return {
+    rows,
+    finding:
+      `${String(rows.length)} of ${view.locator} re-fetched: ${String(archives)} served an archive, ` +
+      `and the rest answered ${[...types].join(', ') || 'no content type'}`,
+  }
+}
+
+/**
+ * Section 9: re-fetch and record the transport error or the redirect the client would not
+ * follow. One flap looks the same as a dead host in a single run, and this is the difference.
+ */
+async function investigateTransport(
+  view: Pick<CaseView, 'locator'>,
+  memberIds: readonly string[],
+): Promise<{ rows: EvidenceRow[]; finding: string }> {
+  const rows = await reprobeMembers(memberIds)
+  if (rows.length === 0) {
+    return { rows, finding: `nothing on ${view.locator} answered the second fetch` }
+  }
+  const classes = rows.map((r) => (r.observation as { status_class: string }).status_class)
+  const recovered = classes.filter((c) => c === 'ok').length
+  return {
+    rows,
+    finding:
+      recovered === rows.length
+        ? `${view.locator} answered on the second fetch, so the first run may have caught a flap`
+        : `${view.locator} failed again on a second fetch: ${[...new Set(classes)].join(', ')}`,
+  }
+}
+
+/** What a case of this kind is worth reading, given its members. Section 9's table. */
+export async function investigateFor(
+  causeKind: string,
+  view: Pick<CaseView, 'locator' | 'case_id'> & Partial<CaseView>,
+  memberIds: readonly string[],
+  runDate?: string,
+): Promise<{ rows: EvidenceRow[]; finding: string }> {
+  switch (causeKind) {
+    case 'code_host_path_removed':
+      return await investigateRepo(detectionsFor(runDate ?? '', memberIds))
+    case 'tls_expired':
+      return await investigateTls(view.locator.split('/')[0] ?? view.locator)
+    case 'deprecated_service':
+      return await investigateRetired(view as CaseView)
+    case 'content_type_mismatch':
+      return await investigateContent(view, memberIds)
+    case 'redirect_unresolved':
+    case 'host_unreachable':
+    case 'auth_rejected':
+      return await investigateTransport(view, memberIds)
+    default:
+      // path_not_found and individual. Section 9 attributes both to the agency and says the
+      // subagent reassigns to the host operator when the host is not the agency's own, which
+      // needs a rule for "its own host" that this dataset cannot settle. It stays unwritten
+      // instead of guessed, and the case reaches the queue on its counted points.
+      return { rows: [], finding: 'no external investigation for this cause kind' }
+  }
+}
+
 async function investigate(
   store: Store,
   caseId: string,
@@ -79,17 +181,7 @@ async function investigate(
   const view = caseView(store, caseId, runDate)
   if (view === undefined) return { rows: [], finding: 'no such case' }
   const memberIds = view.members.filter((m) => m.role === 'member').map((m) => m.feed_id)
-
-  switch (view.cause_kind) {
-    case 'code_host_path_removed':
-      return await investigateRepo(detectionsFor(runDate, memberIds))
-    case 'tls_expired':
-      return await investigateTls(view.locator.split('/')[0] ?? view.locator)
-    case 'deprecated_service':
-      return await investigateRetired(view)
-    default:
-      return { rows: [], finding: 'no external investigation for this cause kind' }
-  }
+  return await investigateFor(view.cause_kind, view, memberIds, runDate)
 }
 
 /** One case, one subagent's worth of work, written once. */
