@@ -4,11 +4,13 @@
 import type { CaseDetail } from '../lib/api'
 import {
   certificate,
+  isTransportCause,
   type Parsed,
   parseRows,
   redirects,
   repository,
   served,
+  transport,
 } from '../lib/attribution'
 
 function Link({ url, after }: { url: string | null; after?: string }) {
@@ -91,7 +93,11 @@ export function Attribution({ detail }: { detail: CaseDetail }) {
   const tls = rows.find((r) => r.kind === 'tls')
   return (
     <div className="found overprint">
-      {http.length > 0 ? <Served rows={http} locator={detail.locator} /> : null}
+      {http.length === 0 ? null : isTransportCause(detail.cause_kind) ? (
+        <p className="found-line">{transport(http, detail.locator)}</p>
+      ) : (
+        <Served rows={http} locator={detail.locator} />
+      )}
       {repo === undefined ? null : <Repo row={repo} />}
       {redirectRows.length > 0 ? <Redirects rows={redirectRows} /> : null}
       {tls === undefined ? null : <p className="found-line">{certificate(tls)}</p>}

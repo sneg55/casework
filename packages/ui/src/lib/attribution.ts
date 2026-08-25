@@ -40,19 +40,60 @@ export interface Served {
   prefix: string | null
 }
 
-/** What the platform answered on the second fetch, and the bytes it opened with. */
+/**
+ * What the platform answered on the second fetch, and the bytes it opened with. The types and
+ * the quoted body are read off the responses that did not serve an archive, because those are
+ * the ones the sentence is about: an archive's own first bytes are PK, which is the answer the
+ * case says is missing.
+ */
 export function served(rows: Parsed[], locator: string): Served {
-  const archives = rows.filter((r) => r.observation['magic_ok'] === true).length
-  const types = [...new Set(rows.map((r) => str(r.observation['content_type']) ?? 'no type'))]
-  const quoted = rows.find((r) => str(r.observation['body_prefix']) !== null)
+  const archived = rows.filter((r) => r.observation['magic_ok'] === true)
+  const rest = rows.filter((r) => r.observation['magic_ok'] !== true)
+  const types = [...new Set(rest.map((r) => str(r.observation['content_type']) ?? 'no type'))]
+  const quoted = rest.find((r) => str(r.observation['body_prefix']) !== null)
+  const opening = `Re-fetched ${String(rows.length)} of ${locator}.`
+  let line: string
+  if (rest.length === 0) {
+    line = `${opening} Every one served an archive.`
+  } else if (archived.length === 0) {
+    line = `${opening} None served an archive; they answered ${types.join(', ')}.`
+  } else {
+    line =
+      `${opening} ${String(archived.length)} served an archive; ` +
+      `the other ${String(rest.length)} answered ${types.join(', ')}.`
+  }
   return {
-    line:
-      `Re-fetched ${String(rows.length)} of ${locator}. ` +
-      `${archives === 0 ? 'None' : String(archives)} served an archive; ` +
-      `the rest answered ${types.join(', ')}.`,
+    line,
     url: quoted?.source_url ?? null,
     prefix: quoted === undefined ? null : str(quoted.observation['body_prefix']),
   }
+}
+
+/**
+ * The transport investigations re-probe the same way the content one does, so their rows carry
+ * the same `http` kind. What they establish is different: whether the host failed a second time
+ * or whether the first run caught a flap. Saying "none served an archive" about an unreachable
+ * host answers a question nobody asked.
+ */
+export function transport(rows: Parsed[], locator: string): string {
+  const classes = rows.map((r) => str(r.observation['status_class']) ?? 'no status')
+  const recovered = classes.filter((c) => c === 'ok').length
+  if (recovered === rows.length) {
+    return `${locator} answered on the second fetch, so the first run may have caught a flap.`
+  }
+  const seen = [...new Set(classes.filter((c) => c !== 'ok'))]
+  const partly =
+    recovered === 0
+      ? `${locator} failed again on a second fetch`
+      : `${locator} failed again on ${String(rows.length - recovered)} of ${String(rows.length)} re-fetched`
+  return `${partly}: ${seen.join(', ')}.`
+}
+
+/** Section 9 sends these cause kinds through the transport investigation, not the content one. */
+const TRANSPORT_CAUSES = new Set(['redirect_unresolved', 'host_unreachable', 'auth_rejected'])
+
+export function isTransportCause(causeKind: string): boolean {
+  return TRANSPORT_CAUSES.has(causeKind)
 }
 
 /**

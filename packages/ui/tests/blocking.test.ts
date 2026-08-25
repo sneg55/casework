@@ -101,9 +101,30 @@ describe('why the ready tab is empty', () => {
   })
 
   it('says so when every case has been decided rather than blaming a rule', () => {
-    expect(whyNothingIsReady([queueCase({ state: 'rejected' })])).toContain(
-      'every case has already been decided',
+    expect(whyNothingIsReady([queueCase({ state: 'rejected' })])).toBe(
+      'Nothing is ready: 1 decided.',
     )
+  })
+
+  // The store sets `resolved` on its own when a case stops appearing in a run. Calling that a
+  // decision credits a steward with a call they never made.
+  it('does not call an automatically resolved case a decision', () => {
+    const said = whyNothingIsReady([queueCase({ state: 'resolved' })])
+    expect(said).toContain('stopped failing and closed itself')
+    expect(said).not.toContain('decided')
+  })
+
+  it('separates the cases somebody decided from the ones that closed themselves', () => {
+    const said = whyNothingIsReady([
+      queueCase({ state: 'rejected' }),
+      queueCase({ state: 'snoozed' }),
+      queueCase({ state: 'resolved' }),
+    ])
+    expect(said).toBe('Nothing is ready: 2 decided, and 1 stopped failing and closed itself.')
+  })
+
+  it('claims nothing about decisions when the run produced no cases at all', () => {
+    expect(whyNothingIsReady([])).toBeNull()
   })
 
   it('falls back to the generic message when no rule explains the emptiness', () => {

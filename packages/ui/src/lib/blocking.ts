@@ -38,13 +38,35 @@ export function blockingReasons(detail: CaseDetail): string[] {
 }
 
 /**
+ * A case leaves the queue two ways, and only one of them is somebody's decision: the store
+ * marks a case `resolved` on its own when it stops appearing in a run. Calling that a decision
+ * credits a steward with a call they never made.
+ */
+function nothingOpen(cases: QueueCase[]): string {
+  const decided = cases.filter(
+    (row) => row.state === 'snoozed' || row.state === 'approved' || row.state === 'rejected',
+  ).length
+  const resolved = cases.filter((row) => row.state === 'resolved').length
+  const parts: string[] = []
+  if (decided > 0) parts.push(`${String(decided)} decided`)
+  if (resolved > 0) {
+    parts.push(
+      `${String(resolved)} stopped failing and closed ${resolved === 1 ? 'itself' : 'themselves'}`,
+    )
+  }
+  if (parts.length === 0) return 'Nothing is ready, and no case is open.'
+  return `Nothing is ready: ${parts.join(', and ')}.`
+}
+
+/**
  * An empty Ready tab is not an empty filter: it is the three-run rule and the attribution
  * counter doing their job. Say which, counted off the cases rather than asserted, so the
  * reader knows whether to capture another run or to attribute what is already there.
  */
 export function whyNothingIsReady(cases: QueueCase[]): string | null {
+  if (cases.length === 0) return null
   const open = cases.filter((row) => row.state === 'watching' || row.state === 'ready')
-  if (open.length === 0) return 'Nothing is ready, because every case has already been decided.'
+  if (open.length === 0) return nothingOpen(cases)
 
   const short = open.filter((row) => row.runs_needed > 0)
   const unattributed = open.filter((row) => row.runs_needed === 0 && row.confidence === 0)

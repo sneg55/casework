@@ -5,11 +5,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   certificate,
+  isTransportCause,
   type Parsed,
   parseRows,
   redirects,
   repository,
   served,
+  transport,
 } from '../src/lib/attribution'
 
 const parsed = (kind: string, observation: object, source_url: string | null = null): Parsed => ({
@@ -40,13 +42,50 @@ describe('what the platform served', () => {
       'gtfs.calitp.org',
     )
     expect(facts.line).toBe(
-      'Re-fetched 2 of gtfs.calitp.org. None served an archive; the rest answered text/html; charset=utf-8.',
+      'Re-fetched 2 of gtfs.calitp.org. None served an archive; they answered text/html; charset=utf-8.',
     )
   })
 
-  it('says so when a re-fetch did serve an archive after all', () => {
+  it('says so when every re-fetch served an archive, without a rest to describe', () => {
     const facts = served([parsed('http', { magic_ok: true, content_type: 'application/zip' })], 'h')
-    expect(facts.line).toContain('1 served an archive')
+    expect(facts.line).toBe('Re-fetched 1 of h. Every one served an archive.')
+    expect(facts.line).not.toContain('the rest')
+  })
+
+  // "the rest" excludes the archives, so the types it names have to exclude them too.
+  it('does not attribute the archive content type to the responses that were not archives', () => {
+    const facts = served(
+      [
+        parsed('http', { magic_ok: true, content_type: 'application/zip' }),
+        parsed('http', { magic_ok: false, content_type: 'text/html' }),
+        parsed('http', { magic_ok: false, content_type: 'text/html' }),
+      ],
+      'h',
+    )
+    expect(facts.line).toBe(
+      'Re-fetched 3 of h. 1 served an archive; the other 2 answered text/html.',
+    )
+    expect(facts.line).not.toContain('application/zip')
+  })
+
+  it('never quotes the archive\u2019s own bytes as the thing that should have been an archive', () => {
+    const facts = served(
+      [
+        parsed(
+          'http',
+          { magic_ok: true, content_type: 'application/zip', body_prefix: 'PK..' },
+          'https://h/good.zip',
+        ),
+        parsed(
+          'http',
+          { magic_ok: false, content_type: 'text/html', body_prefix: '<!DOCTYPE' },
+          'https://h/bad.zip',
+        ),
+      ],
+      'h',
+    )
+    expect(facts.prefix).toBe('<!DOCTYPE')
+    expect(facts.url).toBe('https://h/bad.zip')
   })
 
   it('quotes the first row that actually carries a body prefix', () => {
@@ -132,5 +171,43 @@ describe('what the certificate shows', () => {
     )
     expect(said).toContain('issued by R3')
     expect(said).toContain('expires 2026-09-01')
+  })
+})
+
+describe('what a transport re-probe shows', () => {
+  // host_unreachable, redirect_unresolved and auth_rejected re-probe through the same code and
+  // carry the same http kind, but "none served an archive" answers a question nobody asked.
+  it('reports a host that failed twice as failed, not as one that served no archive', () => {
+    const said = transport([parsed('http', { status_class: 'timeout' })], 'h')
+    expect(said).toContain('failed again on a second fetch')
+    expect(said).toContain('timeout')
+    expect(said).not.toContain('archive')
+  })
+
+  it('separates a flap from a dead host', () => {
+    const said = transport([parsed('http', { status_class: 'ok' })], 'h')
+    expect(said).toContain('may have caught a flap')
+  })
+
+  it('counts a partial recovery instead of calling the whole host healthy', () => {
+    const said = transport(
+      [
+        parsed('http', { status_class: 'ok' }),
+        parsed('http', { status_class: 'network' }),
+        parsed('http', { status_class: 'network' }),
+      ],
+      'h',
+    )
+    expect(said).toContain('failed again on 2 of 3')
+    expect(said).not.toContain('flap')
+  })
+
+  it('routes exactly the cause kinds section 9 sends through the transport investigation', () => {
+    for (const kind of ['redirect_unresolved', 'host_unreachable', 'auth_rejected']) {
+      expect(isTransportCause(kind)).toBe(true)
+    }
+    for (const kind of ['content_type_mismatch', 'code_host_path_removed', 'individual']) {
+      expect(isTransportCause(kind)).toBe(false)
+    }
   })
 })
