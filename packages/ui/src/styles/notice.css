@@ -115,12 +115,47 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
-.facing .finding {
+/* What the second look found. The rule down the left marks it as read now, not read off the
+   run file, which is the distinction the whole case turns on. */
+.facing .found {
   margin: 12px 0 0;
   font-size: 13px;
   color: var(--ink);
   border-left: 1px solid var(--over);
   padding-left: 12px;
+}
+.facing .found p {
+  margin: 0;
+}
+.facing .found-url,
+.facing .found-note {
+  color: var(--ink-soft);
+  font-size: 12px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+/* The bytes the host served, quoted the way the drafted message quotes them. */
+.facing .found-bytes {
+  margin: 5px 0 0;
+  padding: 7px 9px;
+  background: var(--paper-lift);
+  border: 1px solid var(--rule-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #26251f;
+}
+.facing .found-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.facing .found-list li {
+  margin-bottom: 3px;
 }
 .mono {
   font-family: var(--mono);
