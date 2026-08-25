@@ -25,6 +25,11 @@ draft and no ticket. It sits in the queue with its counter showing. This is the 
 SOP and the single reason the tool gets used rather than muted. Do not work around it by
 drafting early, and do not ask for it to be waived because a case looks obvious.
 
+`outreach.draft` refuses such a case and says which of the two conditions is blocking, the run
+count or the missing attribution. A refusal is the rule working. Report it to the human in its
+own words and move to the next case; do not retry it, and do not compose the message yourself
+in the chat instead.
+
 **Suppression is not hiding.** A feed the catalog already answers is not a ticket:
 
 - `authentication_type` is set and the response was 401 or 403: the feed is healthy. It needs
