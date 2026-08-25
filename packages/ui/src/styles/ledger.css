@@ -110,6 +110,9 @@
 .shell .page {
   flex: 1;
   min-width: 0;
+  /* Below 900px the shell stacks, and a stretched item takes its min-content width unless it
+     is told otherwise, which pushed the whole page wider than the phone. */
+  width: 100%;
 }
 .dock {
   flex: 0 0 auto;

@@ -9,6 +9,7 @@ import { Register } from '../components/Register'
 import { Singles } from '../components/Singles'
 import { Totals } from '../components/Totals'
 import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
+import { whyNothingIsReady } from '../lib/blocking'
 
 // The one reason that says the feed is healthy rather than suppressed. It comes from
 // scripts/cases.py, which is where the wording is defined.
@@ -87,7 +88,9 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
 
       {shown.length === 0 ? (
         <p className="status quiet">
-          Nothing in the register matches this filter.{' '}
+          {(filter.group === 'ready' && filter.query.trim() === ''
+            ? whyNothingIsReady(data.cases)
+            : null) ?? 'Nothing in the register matches this filter.'}{' '}
           <button
             type="button"
             className="retry"

@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { ActionBar } from '../components/ActionBar'
+import { Attribution } from '../components/Attribution'
 import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
 import { api, type CaseDetail } from '../lib/api'
@@ -20,7 +21,6 @@ function Back({ onBack }: { onBack: () => void }) {
 function Facing({ detail }: { detail: CaseDetail }) {
   const members = detail.members.filter((m) => m.role === 'member')
   const corroborating = detail.members.filter((m) => m.role === 'corroborating')
-  const finding = detail.attribution.at(0)
   return (
     <div className="facing">
       <section>
@@ -57,18 +57,7 @@ function Facing({ detail }: { detail: CaseDetail }) {
             confidence {detail.confidence} of 3
           </dd>
         </dl>
-        {finding === undefined ? (
-          <p className="finding">Not investigated yet. Ask the agent to attribute this case.</p>
-        ) : (
-          <p className="finding overprint">
-            {finding.kind === 'repo' ? 'Repository read: ' : 'Checked: '}
-            {finding.source_url === null ? null : (
-              <a href={finding.source_url} target="_blank" rel="noreferrer">
-                {finding.source_url}
-              </a>
-            )}
-          </p>
-        )}
+        <Attribution detail={detail} />
       </section>
     </div>
   )
