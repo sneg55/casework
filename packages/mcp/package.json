@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "api": "tsx src/entrypoints/http.ts",
-    "build:cases": "tsx src/entrypoints/build.ts"
+    "build:cases": "tsx src/entrypoints/build.ts",
+    "attribute": "tsx src/entrypoints/attribute.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

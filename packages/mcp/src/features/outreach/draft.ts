@@ -4,6 +4,7 @@
 // it cannot invent an observation, because the observations come from this function.
 import { z } from 'zod'
 
+import { RUNS_BEFORE_DRAFT } from '../../constants/enums.js'
 import { detectionsFor, latestRunDate } from '../../services/runFiles.js'
 import type { Store } from '../../services/store.js'
 import { type CaseView, caseView } from '../cases/view.js'
@@ -109,10 +110,29 @@ function genericBody(view: CaseView, observed: string[]): string {
   ].join('\n')
 }
 
-export function draftFor(store: Store, caseId: string, runDate?: string): Draft | undefined {
+export type DraftRefusal = { refused: string }
+
+/**
+ * Section 10: a cause under three consecutive runs "produces no draft and no ticket". The
+ * rule is enforced here and not only in front of send, because a drafted message on screen
+ * is what makes a case look ready to act on.
+ */
+export function draftFor(
+  store: Store,
+  caseId: string,
+  runDate?: string,
+): Draft | DraftRefusal | undefined {
   const date = runDate ?? latestRunDate()
   const view = caseView(store, caseId, date)
   if (view === undefined || date === undefined) return undefined
+  if (view.consecutive_runs < RUNS_BEFORE_DRAFT) {
+    return {
+      refused: `the three-run rule has not fired: ${String(view.consecutive_runs)} of ${String(RUNS_BEFORE_DRAFT)} consecutive runs`,
+    }
+  }
+  if (view.confidence === 0) {
+    return { refused: 'unattributed: run cases.attribute before drafting' }
+  }
 
   const observed = observedLines(store, view, date)
   const build = BODY_BY_PARTY[view.party_kind]

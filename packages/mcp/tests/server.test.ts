@@ -9,7 +9,9 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
+import { RUNS_BEFORE_DRAFT } from '../src/constants/enums.js'
 import { createServer } from '../src/server.js'
+import { latestRunDate } from '../src/services/runFiles.js'
 import { openStore, type Store } from '../src/services/store.js'
 
 const textReply = z.object({ content: z.array(z.object({ type: z.string(), text: z.string() })) })
@@ -78,11 +80,27 @@ describe('casework-mcp', () => {
     expect(refusal.refused).toContain('3-day rule')
   })
 
-  it('refuses to send an attributed, drafted case with no channel on file', async () => {
-    const caseId = await firstCaseId()
+  it('refuses to draft a case that has not cleared the three-run rule', async () => {
+    const refusal = z
+      .object({ refused: z.string() })
+      .parse(await call('outreach.draft', { case_id: await firstCaseId() }))
+    expect(refusal.refused).toContain('three-run rule')
+  })
+
+  it('refuses to draft a case that reached three runs unattributed', async () => {
     // Fast-forward the counter the way three more captured runs would.
     store.db.prepare('UPDATE cases SET consecutive_runs = 3').run()
-    store.db.prepare("UPDATE cases SET party_kind = 'repository' WHERE case_id = ?").run(caseId)
+    const refusal = z
+      .object({ refused: z.string() })
+      .parse(await call('outreach.draft', { case_id: await firstCaseId() }))
+    expect(refusal.refused).toContain('unattributed')
+  })
+
+  it('refuses to send an attributed, drafted case with no channel on file', async () => {
+    const caseId = await firstCaseId()
+    store.db
+      .prepare("UPDATE cases SET party_kind = 'repository', confidence = 3 WHERE case_id = ?")
+      .run(caseId)
     await call('outreach.draft', { case_id: caseId })
     const refusal = z
       .object({ refused: z.string() })
@@ -119,7 +137,8 @@ describe('casework-mcp', () => {
     const built = z
       .object({ run_date: z.string(), cases_persisted: z.number() })
       .parse(await call('cases.build'))
-    expect(built.run_date).toBe('2026-08-24')
+    // Whichever run is newest: a date captured tomorrow must not fail the suite.
+    expect(built.run_date).toBe(latestRunDate())
     expect(built.cases_persisted).toBe(18)
 
     const queue = z
@@ -146,9 +165,10 @@ describe('casework-mcp', () => {
     expect(first?.cause_kind).toBe('code_host_path_removed')
     expect(first?.agency_count).toBe(7)
     expect(first?.corroborating_count).toBe(4)
-    // First run of a cause: nothing is drafted, and the queue says how many runs are left.
-    expect(first?.state).toBe('watching')
-    expect(first?.runs_needed).toBe(2)
+    // The counter advances with every captured run, so assert the rule rather than the day.
+    const runs = first?.consecutive_runs ?? 0
+    expect(first?.runs_needed).toBe(Math.max(0, RUNS_BEFORE_DRAFT - runs))
+    expect(first?.state).toBe(runs >= RUNS_BEFORE_DRAFT ? 'ready' : 'watching')
   })
 
   it('shows the evidence behind a case and never a contact address', async () => {

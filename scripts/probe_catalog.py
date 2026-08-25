@@ -21,17 +21,39 @@ from case_document import case_document
 from cases import CREDENTIAL_REASON, build_cases, streaks, triage
 from detection import UA, probe
 
-CATALOG = "https://bit.ly/catalogs-csv"
+# The shortlink is the address the Mobility Database publishes; the storage URL behind it is
+# the fallback, so a judge is not stopped by a URL shortener being unreachable.
+CATALOGS = (
+    "https://bit.ly/catalogs-csv",
+    "https://storage.googleapis.com/storage/v1/b/mdb-csv/o/sources.csv?alt=media",
+)
+
+
+def fetch_catalog(urls=CATALOGS):
+    failures = []
+    for url in urls:
+        if not url.startswith("https://"):
+            failures.append(f"{url}: not an https URL")
+            continue
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})  # noqa: S310 - scheme checked above
+            with urllib.request.urlopen(req, timeout=60) as response:  # noqa: S310 - scheme checked above
+                raw = response.read().decode("utf-8", "replace")
+            if "mdb_source_id" in raw.partition("\n")[0]:
+                return raw
+            failures.append(f"{url}: served something that is not the catalog CSV")
+        except OSError as error:
+            failures.append(f"{url}: {error}")
+    raise SystemExit(
+        "Could not read the Mobility Database catalog.\n  "
+        + "\n  ".join(failures)
+        + "\nReplay a captured run instead: "
+        "python3 scripts/probe_catalog.py --replay data/runs/2026-08-24.json"
+    )
 
 
 def load_catalog(jurisdiction, feed_ids=None):
-    raw = (
-        urllib.request.urlopen(
-            urllib.request.Request(CATALOG, headers={"User-Agent": UA}), timeout=60
-        )
-        .read()
-        .decode("utf-8", "replace")
-    )
+    raw = fetch_catalog()
     rows = [
         r
         for r in csv.DictReader(io.StringIO(raw))

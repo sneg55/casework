@@ -13,22 +13,29 @@
 
 import { z } from 'zod'
 
+import { fromRoot } from './repoRoot.js'
+
+// Relative paths resolve against the repository root, not the cwd, so a workspace script
+// finds data/runs wherever npm chose to run it from.
+const rootPath = (fallback: string) => z.string().default(fallback).transform(fromRoot)
+
 const envSchema = z.object({
   // ── Runtime ──────────────────────────────────────────────────────────────
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
   // ── Casework ─────────────────────────────────────────────────────────────
-  // Paths are relative to the repository root, which is where the server is started.
-  CASEWORK_RUN_DIR: z.string().default('data/runs'),
-  CASEWORK_OUTBOX_DIR: z.string().default('data/outbox'),
-  CASEWORK_DB: z.string().default('data/casework.sqlite'),
-  CASEWORK_PROBE: z.string().default('scripts/probe_catalog.py'),
+  // The read API the screens fetch from. The UI's own default matches this one.
+  CASEWORK_API_PORT: z.coerce.number().int().positive().default(8791),
+
+  CASEWORK_RUN_DIR: rootPath('data/runs'),
+  CASEWORK_OUTBOX_DIR: rootPath('data/outbox'),
+  CASEWORK_DB: rootPath('data/casework.sqlite'),
+  CASEWORK_PROBE: rootPath('scripts/probe_catalog.py'),
   CASEWORK_PYTHON: z.string().default('python3'),
 
   // Holds addresses. Never committed, never read outside outreach.send.
-  CASEWORK_REGISTRY_PATH: z.string().default('registry.local.json'),
+  CASEWORK_REGISTRY_PATH: rootPath('registry.local.json'),
 
   // Optional. repo.inspect works unauthenticated; a token raises the API rate limit.
   GITHUB_TOKEN: z.string().min(1).optional(),

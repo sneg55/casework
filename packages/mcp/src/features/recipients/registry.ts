@@ -8,25 +8,50 @@ import { PARTY_KINDS, type PartyKind } from '../../constants/enums.js'
 import { env } from '../../utils/env.js'
 
 // { "repository": { "LACMTA/los-angeles-regional-gtfs": "...", "*": "..." }, ... }
-const registrySchema = z.record(z.enum(PARTY_KINDS), z.record(z.string(), z.string()))
+// Keys that are not party kinds are documentation and are dropped, so the file can explain
+// itself in a format that has no comments.
+const channelsSchema = z.record(z.string(), z.string())
+const registrySchema = z.record(z.string(), z.unknown())
+
+const PARTIES = new Set<string>(PARTY_KINDS)
 
 /** Channels by party, by key. A Map rather than a record: the keys come from a file. */
 export type Registry = Map<PartyKind, Map<string, string>>
 
 export function loadRegistry(path: string = env.CASEWORK_REGISTRY_PATH): Registry {
+  let raw: string
   try {
-    const parsed = registrySchema.parse(JSON.parse(readFileSync(path, 'utf8')))
-    return new Map(
-      Object.entries(parsed).map(([party, channels]) => [
-        party as PartyKind,
-        new Map(Object.entries(channels)),
-      ]),
-    )
+    raw = readFileSync(path, 'utf8')
   } catch {
     // A missing registry is the normal state of a fresh clone. Every case then reads as
-    // unattributed, which is the correct answer, and nothing pretends otherwise.
+    // having no channel, which is the correct answer, and nothing pretends otherwise.
     return new Map()
   }
+  const registry: Registry = new Map()
+  let json: unknown
+  try {
+    json = JSON.parse(raw)
+  } catch {
+    process.stderr.write(`[registry] ${path} is not valid JSON; ignoring it\n`)
+    return registry
+  }
+  const parsed = registrySchema.safeParse(json)
+  if (!parsed.success) {
+    // The file exists and is wrong. Silence here reads on screen as "no channel on file",
+    // which sends a reader looking for the wrong problem.
+    process.stderr.write(`[registry] ${path} is not an object of party kinds; ignoring it\n`)
+    return registry
+  }
+  for (const [party, channels] of Object.entries(parsed.data)) {
+    if (!PARTIES.has(party)) continue
+    const entries = channelsSchema.safeParse(channels)
+    if (!entries.success) {
+      process.stderr.write(`[registry] ${path}: ${party} is not a map of channels; ignoring it\n`)
+      continue
+    }
+    registry.set(party as PartyKind, new Map(Object.entries(entries.data)))
+  }
+  return registry
 }
 
 /** The channel key for a cause: the repository, the host, or the catalog itself. */

@@ -9,9 +9,10 @@ import { channelKey, isResolvable, loadRegistry } from '../src/features/recipien
 
 const CAUSE = 'raw.githubusercontent.com/LACMTA/los-angeles-regional-gtfs|not_found'
 
+/** A string is written verbatim, so a test can hand the loader something malformed. */
 function registryFile(contents: unknown): string {
   const path = join(mkdtempSync(join(tmpdir(), 'casework-reg-')), 'registry.local.json')
-  writeFileSync(path, JSON.stringify(contents))
+  writeFileSync(path, typeof contents === 'string' ? contents : JSON.stringify(contents))
   return path
 }
 
@@ -23,6 +24,17 @@ describe('the recipient registry', () => {
   it('treats a missing registry as nothing being resolvable', () => {
     const registry = loadRegistry(join(tmpdir(), 'casework-does-not-exist.json'))
     expect(isResolvable(registry, 'repository', CAUSE, false)).toBe(false)
+  })
+
+  it('survives a registry that is not JSON rather than taking the process down', () => {
+    expect(loadRegistry(registryFile('{ not json at all')).size).toBe(0)
+  })
+
+  it('drops a key that is not a party kind instead of failing the whole file', () => {
+    const registry = loadRegistry(
+      registryFile({ _comment: ['how to fill this in'], catalog: { '*': 'x' } }),
+    )
+    expect([...registry.keys()]).toEqual(['catalog'])
   })
 
   it('resolves a party with a channel for that exact key', () => {

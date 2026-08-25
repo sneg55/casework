@@ -210,12 +210,15 @@ export function createServer(store: Store): McpServer {
       title: 'Draft the message',
       description:
         'Composes the message for a case from its evidence: what the catalog asks for, what ' +
-        'is actually there, and the question that closes it. Not gated, and it sends nothing.',
+        'is actually there, and the question that closes it. Not gated, and it sends nothing. ' +
+        'Refuses a case under the three-run rule or one that has not been attributed.',
       inputSchema: { case_id: z.string(), run_date: z.string().optional() },
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     ({ case_id, run_date }) => {
       const draft = draftFor(store, case_id, run_date)
+      // A refusal is the rule working, so it comes back as a reply the agent can read and
+      // repeat to a human, the same shape outreach.send refuses in.
       return draft === undefined ? fail(`No such case: ${case_id}`) : reply(draft)
     },
   )

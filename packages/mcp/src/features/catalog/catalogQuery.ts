@@ -6,11 +6,12 @@ import { promisify } from 'node:util'
 import { z } from 'zod'
 
 import { env } from '../../utils/env.js'
+import { fromRoot } from '../../utils/repoRoot.js'
 
 const run = promisify(execFile)
 const CATALOG_TIMEOUT_MS = 90_000
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024
-const SCRIPT = 'scripts/catalog_query.py'
+const SCRIPT = fromRoot('scripts/catalog_query.py')
 
 export const catalogRowSchema = z.object({
   feed_id: z.string().nullable(),

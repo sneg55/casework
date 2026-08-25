@@ -6,6 +6,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 
 import { caseView, queueRow } from '../features/cases/view.js'
+import { isBucket, ledger } from '../features/evidence/ledger.js'
 import { draftFor, latestDraft, reviseDraft } from '../features/outreach/draft.js'
 import { decide } from '../features/outreach/send.js'
 import { latestRunDate, runDates } from '../services/runFiles.js'
@@ -75,7 +76,9 @@ async function post(
   switch (action) {
     case 'draft': {
       const draft = draftFor(store, caseId)
-      return json(res, draft === undefined ? 404 : 200, draft ?? { error: 'no such case' })
+      if (draft === undefined) return json(res, 404, { error: 'no such case' })
+      // A refusal is the rule working, not a server fault: 409, with the reason to show.
+      return 'refused' in draft ? json(res, 409, { error: draft.refused }) : json(res, 200, draft)
     }
     case 'revise':
       return json(res, 200, reviseDraft(store, caseId, input['subject'] ?? '', input['body'] ?? ''))
@@ -100,19 +103,32 @@ async function post(
   }
 }
 
+/** The rows behind one of the counts on the register. Section 11's clickable numbers. */
+function ledgerRoute(res: ServerResponse, params: URLSearchParams): void {
+  const date = latestRunDate()
+  const bucket = params.get('bucket') ?? ''
+  if (date === undefined) return json(res, 404, { error: 'no captured run' })
+  if (!isBucket(bucket)) return json(res, 404, { error: `no such bucket: ${bucket}` })
+  return json(res, 200, ledger(store, date, bucket, params.get('reason') ?? undefined))
+}
+
+function get(res: ServerResponse, url: URL, resource: string, id: string | undefined): void {
+  if (resource === 'queue') return json(res, 200, queue(store, url.searchParams.get('state')))
+  if (resource === 'ledger') return ledgerRoute(res, url.searchParams)
+  if (resource === 'cases' && id !== undefined) {
+    const view = detail(store, id)
+    return json(res, view === null ? 404 : 200, view ?? { error: 'no such case' })
+  }
+  return json(res, 404, { error: 'not found' })
+}
+
 async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const [root, resource, id, action] = url.pathname.split('/').filter((p) => p !== '')
 
   if (req.method === 'OPTIONS') return json(res, 204, {})
-  if (root !== 'api') return json(res, 404, { error: 'not found' })
-  if (req.method === 'GET' && resource === 'queue') {
-    return json(res, 200, queue(store, url.searchParams.get('state')))
-  }
-  if (req.method === 'GET' && resource === 'cases' && id !== undefined) {
-    const view = detail(store, id)
-    return json(res, view === null ? 404 : 200, view ?? { error: 'no such case' })
-  }
+  if (root !== 'api' || resource === undefined) return json(res, 404, { error: 'not found' })
+  if (req.method === 'GET') return get(res, url, resource, id)
   if (req.method === 'POST' && resource === 'cases' && id !== undefined) {
     return await post(id, action, req, res)
   }
@@ -123,6 +139,8 @@ createServer((req, res) => {
   void route(req, res).catch((error: unknown) => {
     json(res, 500, { error: String(error) })
   })
-}).listen(env.PORT, () => {
-  process.stdout.write(`casework read API on http://localhost:${String(env.PORT)}/api/queue\n`)
+}).listen(env.CASEWORK_API_PORT, () => {
+  process.stdout.write(
+    `casework read API on http://localhost:${String(env.CASEWORK_API_PORT)}/api/queue\n`,
+  )
 })
