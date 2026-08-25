@@ -316,9 +316,9 @@ this plainly rather than implying mail left the building.
 
 ```
 Detection   run_date, observed_at, feed_id, provider, url, host, path,
-            status_class, healthy, http_code, content_type, magic_ok, tls_ok,
-            latency_ms, attempts, auth_type, catalog_status, redirect_id,
-            contact_on_file
+            status_class, healthy, http_code, content_type, magic_ok,
+            body_prefix, tls_ok, latency_ms, attempts, auth_type,
+            catalog_status, redirect_id, contact_on_file
 
 Suppression run_date, feed_id, reason, source(catalog_field|sop)
 
@@ -399,7 +399,8 @@ same shape:
 
 ```
 kind      fields
-http      feed_id, url, status_class, http_code, content_type, magic_ok, observed_at
+http      feed_id, url, status_class, http_code, content_type, magic_ok,
+          body_prefix, observed_at
 catalog   feed_id, field, value            e.g. status=deprecated, redirect.id=2684
 repo      owner, repo, exists, archived, pushed_at, paths_present[]
 redirect  from_feed_id, to_feed_id, replacement_status_class

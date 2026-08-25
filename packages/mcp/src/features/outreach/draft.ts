@@ -70,9 +70,29 @@ function repositoryBody(store: Store, view: CaseView, observed: string[]): strin
   ].join('\n')
 }
 
-function hostBody(view: CaseView, observed: string[]): string {
+const httpObservation = z.object({
+  url: z.string(),
+  content_type: z.string(),
+  body_prefix: z.string().nullable(),
+})
+
+/** What the second fetch actually received, quoted, so the reader can recognise their own page. */
+function servedLine(store: Store, caseId: string): string[] {
+  const [first] = evidenceOf(store, caseId, 'http')
+  const parsed = httpObservation.safeParse(first)
+  if (!parsed.success || parsed.data.body_prefix === null) return []
+  return [
+    '',
+    `Re-fetched just now, ${parsed.data.url} answered ${parsed.data.content_type || 'no content type'} and began:`,
+    `  ${parsed.data.body_prefix}`,
+    'A zip archive begins PK.',
+  ]
+}
+
+function hostBody(store: Store, view: CaseView, observed: string[]): string {
   return [
     `${view.agency_count} feed URLs on ${view.locator} end in .zip and return HTML rather than a zip archive. A status check passes; a content check does not, so anything consuming these feeds sees a successful response carrying the wrong body.`,
+    ...servedLine(store, view.case_id),
     '',
     'Observed:',
     ...observed,
@@ -95,7 +115,7 @@ function catalogBody(view: CaseView, observed: string[]): string {
 const BODY_BY_PARTY: Record<string, (store: Store, view: CaseView, observed: string[]) => string> =
   {
     repository: (store, view, observed) => repositoryBody(store, view, observed),
-    host_operator: (_store, view, observed) => hostBody(view, observed),
+    host_operator: (store, view, observed) => hostBody(store, view, observed),
     catalog: (_store, view, observed) => catalogBody(view, observed),
   }
 

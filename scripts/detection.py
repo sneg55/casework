@@ -15,6 +15,16 @@ UA = "casework-probe/0.2 (transit feed health; +https://github.com/sneg55/casewo
 RANGE_BYTES = 2048
 ALLOWED_SCHEMES = ("http", "https")
 TRANSIENT = {"timeout", "network", "dns_failure"}
+# Enough of the body to show a reader what was served instead of an archive. A zip starts
+# "PK"; this is what lets a message say what arrived rather than only that it was wrong.
+BODY_PREFIX_BYTES = 64
+
+
+def body_prefix(body):
+    """The opening bytes as printable text. Control bytes become dots, so a binary body
+    cannot smuggle escape sequences into a terminal or a drafted message."""
+    text = body[:BODY_PREFIX_BYTES].decode("ascii", "replace")
+    return "".join(c if 32 <= ord(c) < 127 else "." for c in text)
 
 
 def classify(exc, resp_bytes, headers, auth_type):
@@ -100,6 +110,7 @@ def probe(row, timeout, attempts, run_date):
         "http_code": code,
         "content_type": (headers.get("Content-Type") or "") if headers else "",
         "magic_ok": body[:2] == b"PK",
+        "body_prefix": body_prefix(body),
         "tls_ok": tls_state(parts.scheme, exc, status),
         "latency_ms": round(elapsed * 1000),
         "attempts": attempt,

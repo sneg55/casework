@@ -62,6 +62,9 @@ export const detectionSchema = z.object({
   http_code: z.number().nullable(),
   content_type: z.string(),
   magic_ok: z.boolean(),
+  // Optional because the runs captured before it existed are evidence and are never
+  // regenerated to match a later schema.
+  body_prefix: z.string().optional(),
   tls_ok: z.boolean().nullable(),
   latency_ms: z.number(),
   attempts: z.number(),
