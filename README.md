@@ -136,6 +136,38 @@ your own, and drafting the request to them.
 Casework does not validate feeds. Free tools own that job and it consumes their verdict. It
 does not touch GTFS-Realtime or WZDx, and it does not edit anybody's data.
 
+## Qodo Code Review Evidence
+
+Every pull request in this repository is reviewed by
+[Qodo](https://github.com/marketplace/qodo-merge-pro), and the review is public.
+
+[**PR #2**](https://github.com/sneg55/casework/pull/2) is the fullest example. Qodo returned
+three correctness bugs, all of them real, all of them mine:
+
+- **Transport evidence misreported.** `investigateTransport` and `investigateContent` re-probe
+  through the same code, so their evidence carries the same `http` kind. The case page could
+  not tell them apart and described an unreachable host as one that "served no archive", which
+  answers a question nobody asked. It now branches on `cause_kind`.
+- **Mixed results misreported.** The archive count and the phrase "the rest" were computed over
+  different populations, so a partially healthy host could be told that "the rest answered
+  application/zip" above a quoted `PK` and a line explaining that a zip archive begins `PK`.
+- **Resolved cases called decided.** The store marks a case `resolved` on its own when it stops
+  appearing in a run. The empty Ready tab called that a decision, crediting a steward with a
+  call they never made.
+
+The re-review then raised a rule violation worth more than the bugs: `auth_rejected` was routed
+through the transport investigation while section 9 of [`docs/SPEC.md`](docs/SPEC.md) documented
+that investigation for two cause kinds only. The gap was older than the pull request. Section 6
+declares nine cause kinds and the section 9 table covered eight. The spec now carries the row,
+and a test fails the build if the two ever disagree again.
+
+Two of the repository's own tests had been asserting the buggy strings and were corrected
+alongside the code. One passed on a substring while the sentence it covered was nonsense, which
+is how the second bug survived to review in the first place.
+
+Qodo runs automatically when a pull request is opened. It is also invoked with `/review` on a
+pull request that predates the app.
+
 ## AI assistant disclosure
 
 The event rules require this. The project was built with AI coding tools. I have reviewed and
