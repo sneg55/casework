@@ -36,6 +36,33 @@ export interface Queue {
   runs_on_file: string[]
 }
 
+export type Bucket =
+  | 'checked'
+  | 'healthy'
+  | 'failing'
+  | 'actionable'
+  | 'suppressed_catalog'
+  | 'suppressed_credential'
+
+export interface LedgerRow {
+  feed_id: string | null
+  provider: string
+  url: string
+  status_class: string
+  http_code: number | null
+  content_type: string
+  catalog_field: string | null
+  catalog_value: string | null
+  reason: string | null
+  observed_at: string
+}
+
+export interface Ledger {
+  bucket: Bucket
+  title: string
+  rows: LedgerRow[]
+}
+
 export interface Member {
   feed_id: string
   role: 'member' | 'corroborating'
@@ -84,6 +111,11 @@ async function post<T>(path: string, payload: unknown = {}): Promise<T> {
 export const api = {
   queue: async (): Promise<Queue> => await get<Queue>('/api/queue'),
   case: async (id: string): Promise<CaseDetail> => await get<CaseDetail>(`/api/cases/${id}`),
+  ledger: async (bucket: Bucket, reason?: string): Promise<Ledger> => {
+    const query = new URLSearchParams({ bucket })
+    if (reason !== undefined) query.set('reason', reason)
+    return await get<Ledger>(`/api/ledger?${query.toString()}`)
+  },
   draft: async (id: string): Promise<unknown> => await post(`/api/cases/${id}/draft`),
   revise: async (id: string, subject: string, body: string): Promise<unknown> =>
     await post(`/api/cases/${id}/revise`, { subject, body }),

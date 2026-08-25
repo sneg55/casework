@@ -1,0 +1,194 @@
+/* The rows behind a number, and the agent docked beside the page. */
+
+/* A count in running text that opens its rows. Reads as text until it is wanted. */
+.inline-n {
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-bottom: 1px solid var(--rule-faint);
+}
+.inline-n:hover,
+.inline-n:focus-visible {
+  color: var(--over);
+  border-bottom-color: var(--over);
+}
+.apparatus .inline-n:hover b {
+  color: var(--over);
+}
+
+/* ── the ledger panel ─────────────────────────────────────────────────── */
+.ledger {
+  margin: 14px 0 4px;
+  border: 1px solid var(--rule);
+  background: var(--paper-lift);
+}
+.ledger-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+}
+.ledger-head h3 {
+  margin: 0;
+  font-family: var(--narrow);
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+}
+.ledger-count {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.ledger-close {
+  border: 1px solid var(--rule);
+  background: none;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.ledger-close:hover {
+  border-color: var(--ink);
+}
+
+/* A wide table scrolls inside its own box; the page never scrolls sideways. */
+.ledger-scroll {
+  max-height: 340px;
+  overflow: auto;
+}
+.ledger-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+.ledger-table th {
+  position: sticky;
+  top: 0;
+  background: var(--paper-lift);
+  text-align: left;
+  font-family: var(--narrow);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  font-weight: 600;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.ledger-table td {
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--rule-faint);
+  vertical-align: top;
+}
+.ledger-table .mono {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.ledger-table .catalog-cell {
+  color: var(--over);
+  white-space: nowrap;
+}
+.ledger-table .url-cell a {
+  font-family: var(--mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* ── the agent dock ───────────────────────────────────────────────────── */
+.shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+.shell .page {
+  flex: 1;
+  min-width: 0;
+}
+.dock {
+  flex: 0 0 auto;
+  display: flex;
+  border-left: 1px solid var(--rule);
+  background: var(--paper-lift);
+}
+.dock.open {
+  flex: 0 0 380px;
+  flex-direction: column;
+}
+.dock-tab {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--narrow);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 14px 8px;
+  writing-mode: vertical-rl;
+}
+.dock.open .dock-tab {
+  writing-mode: horizontal-tb;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.dock-tab:hover {
+  color: var(--over);
+}
+.dock-empty {
+  padding: 16px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  overflow: auto;
+}
+.dock-empty h3 {
+  font-family: var(--narrow);
+  font-size: 13px;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+.dock-empty code {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.staged-label {
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+.staged {
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  background: var(--paper);
+  border: 1px solid var(--rule-faint);
+  padding: 8px;
+  margin: 0 0 8px;
+}
+.dock-empty button {
+  border: 1px solid var(--rule);
+  background: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    flex-direction: column;
+  }
+  .dock.open {
+    flex: 1 1 auto;
+    border-left: none;
+    border-top: 1px solid var(--rule);
+  }
+  .dock-tab {
+    writing-mode: horizontal-tb;
+  }
+}

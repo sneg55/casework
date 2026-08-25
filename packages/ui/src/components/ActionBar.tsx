@@ -3,8 +3,9 @@
 // on the same button, not a browser dialog, which would block the page.
 import { useState } from 'react'
 
+import { approvalRequest, askAgent } from '../lib/agent'
 import { api, type CaseDetail } from '../lib/api'
-import { blockingReason, RUNS_REQUIRED } from '../lib/blocking'
+import { blockingReason, draftBlockedReason } from '../lib/blocking'
 
 const ARMED = new Map([
   ['redraft', 'Click again to replace the message'],
@@ -22,6 +23,7 @@ export function ActionBar({ detail, onDone }: { detail: CaseDetail; onDone: () =
   const [busy, setBusy] = useState<string | null>(null)
   const [armed, setArmed] = useState<string | null>(null)
   const blocked = blockingReason(detail)
+  const draftBlocked = draftBlockedReason(detail)
   const hasDraft = detail.draft !== null
 
   const run = (name: string, fn: () => Promise<unknown>) => () => {
@@ -45,7 +47,8 @@ export function ActionBar({ detail, onDone }: { detail: CaseDetail; onDone: () =
         <button
           type="button"
           className={armed === 'redraft' ? 'primary armed' : 'primary'}
-          disabled={busy !== null}
+          disabled={busy !== null || draftBlocked !== null}
+          title={draftBlocked ?? undefined}
           onClick={run(draftName, async () => await api.draft(detail.case_id))}
         >
           {armed === 'redraft'
@@ -69,12 +72,18 @@ export function ActionBar({ detail, onDone }: { detail: CaseDetail; onDone: () =
         >
           {armed === 'reject' ? 'Confirm reject' : 'Reject'}
         </button>
-        <button type="button" disabled title="Approval is a gated tool call in the agent">
+        <button
+          type="button"
+          disabled={blocked !== null}
+          title="Opens the agent with the request staged. The gate itself is the harness's."
+          onClick={() => {
+            askAgent(approvalRequest(detail.docket, detail.case_id))
+          }}
+        >
           Approve and send
         </button>
         <span className={blocked === null ? 'blocked clear' : 'blocked'}>
-          {blocked ??
-            `past ${String(RUNS_REQUIRED)} runs and drafted: ask the agent to send, and approve the gate prompt`}
+          {blocked ?? 'this opens the agent; approving its gate prompt is what sends'}
         </span>
       </div>
       <p className="working" role="status">

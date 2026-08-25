@@ -4,13 +4,20 @@ import type { CaseDetail } from './api'
 
 export const RUNS_REQUIRED = 3
 
-export function blockingReason(detail: CaseDetail): string | null {
-  if (detail.state === 'approved') return 'already approved; a message was written to the outbox'
-  if (detail.state === 'rejected') return 'rejected, so nothing will be sent'
+/** Section 10: no draft before three runs, and no draft against an unattributed case. */
+export function draftBlockedReason(detail: CaseDetail): string | null {
   if (detail.consecutive_runs < RUNS_REQUIRED) {
     return `the three-run rule has not fired: ${String(detail.consecutive_runs)} of ${String(RUNS_REQUIRED)} consecutive runs`
   }
   if (detail.confidence === 0) return 'unattributed, so there is no party to write to'
+  return null
+}
+
+export function blockingReason(detail: CaseDetail): string | null {
+  if (detail.state === 'approved') return 'already approved; a message was written to the outbox'
+  if (detail.state === 'rejected') return 'rejected, so nothing will be sent'
+  const beforeDraft = draftBlockedReason(detail)
+  if (beforeDraft !== null) return beforeDraft
   if (!detail.recipient_resolvable) return `no channel on file for a ${detail.party_kind}`
   if (detail.draft === null) return 'no message drafted yet'
   return null

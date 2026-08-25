@@ -58,13 +58,26 @@
   flex-wrap: wrap;
   border-bottom: 1px solid var(--rule);
 }
-.strip div {
+/* Each figure opens the rows it counts, so it is a button wearing the strip's clothes. */
+.strip .total {
   padding: 12px 22px 12px 0;
   margin-right: 22px;
+  border: none;
   border-right: 1px solid var(--rule);
+  border-bottom: 2px solid transparent;
+  background: none;
+  text-align: left;
+  cursor: pointer;
 }
-.strip div:last-child {
+.strip .total:last-child {
   border-right: none;
+}
+.strip .total:hover .n,
+.strip .total:focus-visible .n {
+  color: var(--over);
+}
+.strip .total:hover {
+  border-bottom-color: var(--over-soft);
 }
 .strip .n {
   font-family: var(--narrow);

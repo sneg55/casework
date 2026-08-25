@@ -4,15 +4,27 @@
 import { useEffect, useState } from 'react'
 
 import { EMPTY_FILTER, type Filter, Filters, isFiltered, matches } from '../components/Filters'
+import { LedgerPanel, type LedgerRequest } from '../components/LedgerPanel'
 import { Register } from '../components/Register'
 import { Singles } from '../components/Singles'
 import { Totals } from '../components/Totals'
-import { api, type QueueCase, type Queue as QueueData } from '../lib/api'
+import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
+
+// The one reason that says the feed is healthy rather than suppressed. It comes from
+// scripts/cases.py, which is where the wording is defined.
+const CREDENTIAL_REASON = 'catalog declares a credential is required'
 
 export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const [data, setData] = useState<QueueData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER)
+  const [ledger, setLedger] = useState<LedgerRequest | null>(null)
+  const openBucket = (bucket: Bucket) => {
+    setLedger({ bucket })
+  }
+  const closeLedger = () => {
+    setLedger(null)
+  }
 
   useEffect(() => {
     api
@@ -66,7 +78,9 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
         </p>
       </div>
 
-      <Totals run={run} />
+      <Totals run={run} onOpen={openBucket} />
+
+      {ledger === null ? null : <LedgerPanel request={ledger} onClose={closeLedger} />}
 
       <h2 className="sec">The register</h2>
       <Filters cases={data.cases} filter={filter} onChange={setFilter} />
@@ -108,12 +122,34 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
         <ul>
           {data.suppressed.map((entry) => (
             <li key={entry.reason}>
-              <b>{entry.n}</b>
-              {entry.reason}
+              <button
+                type="button"
+                className="inline-n"
+                onClick={() => {
+                  setLedger({
+                    bucket:
+                      entry.reason === CREDENTIAL_REASON
+                        ? 'suppressed_credential'
+                        : 'suppressed_catalog',
+                    reason: entry.reason,
+                  })
+                }}
+              >
+                <b>{entry.n}</b>
+                {entry.reason}
+              </button>
             </li>
           ))}
           <li>
-            <b>{run.healthy}</b>feeds are serving a zip archive and produce nothing at all
+            <button
+              type="button"
+              className="inline-n"
+              onClick={() => {
+                openBucket('healthy')
+              }}
+            >
+              <b>{run.healthy}</b>feeds are serving a zip archive and produce nothing at all
+            </button>
           </li>
           <li className="mark-note">
             <b>†</b>no channel on file for that party, so the case cannot be approved
