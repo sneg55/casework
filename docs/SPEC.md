@@ -7,21 +7,14 @@ summary: Build spec for Casework, an agent that works a transit data steward's f
 
 # Casework, Build Spec
 
-> **Status: DRAFT.** A companion research report (internal, not in this repository) holds
-> the event rules, sponsor analysis, competitor classification and the validation that
-> selected this concept. This document is the build design only.
->
-> **Event:** The Agent Harness Hackathon (TrueForge), WeMakeDevs + TrueFoundry.
-> **Window:** 2026-08-24 08:00 to **2026-08-30 20:00 London**.
-> **Tracks targeted:** Double-O (Best Use of TrueForge) primary; Q Branch (Qodo, Best Code
-> Quality) and Savile Row (Best UI) are both winnable from the same build and are treated
-> as requirements, not stretch goals.
+> This document is the build design: layout, enums, states and scope. It is the authority
+> on behaviour, and it changes in the same commit as the behaviour it describes.
 
 Every count of feeds, failures, causes and suppressions in this document was measured on
 **2026-08-24** by `scripts/probe_catalog.py` against live public endpoints, and the run it was
 measured from is committed at `data/runs/2026-08-24.json`. Three statements are not the probe's
 and are marked where they appear: the operator's manual-check count, the state of the LACMTA
-repository, and the catalog-wide repository count. Section 14 states what is proven and what is
+repository, and the catalog-wide repository count. Section 13 states what is proven and what is
 not. Absolute counts move as publishers change their hosting; the probe re-measures them in one
 command.
 
@@ -233,9 +226,9 @@ itself splits.
   └── docs/SPEC.md
 ```
 
-**Checks that run on every pull request**, so the Q Branch trail is a week of green runs rather
-than one at the end: `ruff check`, `ruff format --check`, `pytest`, `biome ci`, `eslint`,
-`tsc --noEmit` on both packages, `vitest run`, and the Qodo review itself. `npm run check` runs
+**Checks that run on every pull request**: `ruff check`, `ruff format --check`, `pytest`,
+`biome ci`, `eslint`, `tsc --noEmit` on both packages, `vitest run`, and the Qodo review
+itself. `npm run check` runs
 all of them in one command, locally and in CI. The daily run capture is a local command while the repository has no remote;
 it becomes a scheduled workflow the day it gets one.
 
@@ -656,28 +649,7 @@ produce nothing at all.
 down during judging, the same run replays from capture and the transformation is unchanged.
 The video says which mode is running.
 
-## 13. Build plan
-
-Sized in files and lines, not in time. Calendar days are the event's, not an effort estimate.
-
-| Day | Deliverable | Size |
-|---|---|---|
-| 08-24 | Licence, AI-use disclosure in README, `probe_catalog.py` with catalog triage, cause resolution, grouping, run counter and replay, first real run committed, npm workspace and both lint and test toolchains green, 15 tests over the triage and grouping rules | ~450 LOC, 12 files |
-| 08-25 | Public remote, **Qodo installed on the first PR**, CI running `npm run check`. Landed early on 08-24: `casework-mcp` over stdio with `catalog.load`, `probe.run`, `cases.build`, `cases.list`, `evidence.get` and `recipient.lookup`, SQLite persistence with the case state machine, the recipient registry with no addresses in it, and 17 tests including an end-to-end MCP round trip | ~900 LOC, 14 files |
-| 08-26 | Landed early: `repo.inspect`, `tls.inspect`, `redirect.resolve`, per-case attribution with counted confidence. Still to do: the second and third captured runs, which only time can produce | ~350 LOC, 4 files |
-| 08-27 | Landed early: agent definition validated against the harness's own `AgentSpecSchema`, `casework-sop/SKILL.md`, draft generation. Still to do: registering the skill with a running harness, and the per-case subagent prompt | ~250 LOC, 4 files |
-| 08-28 | Landed early: read API, queue and case screens, per section 11. Still to do: docking the agent chat beside them, which needs a running harness | ~600 LOC, 9 files |
-| 08-29 | Landed early: the approval gate's refusals, the outbox seam, decisions and traces, `--replay`, README setup and CI. Still to do: the video | ~200 LOC, 4 files |
-| 08-30 | Video, written summary, final Qodo pass. **Submit by 20:00 London.** | |
-
-**Every day also captures a run**, before anything else, because the 3-day counter cannot be
-backfilled honestly and a missed day is permanently missing.
-
-Every day ends with a pull request reviewed by Qodo. The Q Branch track is judged on the
-review trail across the week, so a single PR at the end forfeits it, and so does the first
-commit landing straight on `main`.
-
-## 14. What is proven and what is not
+## 13. What is proven and what is not
 
 **Proven, measured 2026-08-24 on live public endpoints by the committed script**, with the run
 itself committed at `data/runs/2026-08-24.json` and re-checkable offline with `--replay`. The
@@ -729,20 +701,7 @@ a skill store, and the OpenUI component vocabulary in section 11.
 - **Nobody has agreed to use this.** The problem evidence is first-party and public. The
   demand evidence is not, and this document does not claim it.
 
-## 15. Risks
-
-| Risk | Mitigation |
-|---|---|
-| A judge collapses this to "alert correlation" | Say it first, in the README and the video. The grouping primitive is commodity. The wedge is attributing a fault to an external organization and drafting the request to them, which no correlation platform does. |
-| Upstream hosts flap during judging | Captured runs replay with `--replay`; the mode and the run date are stated on screen |
-| The 3-day rule cannot be seeded honestly | Capture a run every day from 08-24. The counter reads the files on disk, so it cannot claim a day that was not run, and the file count is shown next to it |
-| A judge asks why 53 became 28 and hears "we filtered until it looked good" | Every suppressed row is on screen with the catalog field and value that suppressed it, and `--replay` reproduces the same numbers offline from the committed run |
-| The catalog's own `status` field is stale for a given entry | Suppression by catalog state is visible, reversible per row, and never deletes a detection. A stale `deprecated` hides a real fault, which is a known cost stated here rather than a surprise |
-| Contact data leaking into a public repo | Addresses resolved at send time only, never returned to the model, never rendered, never logged. Enforced by the MCP boundary, not by convention. |
-| UI eats the week | Queue and case views only. No settings, no auth, no multi-tenant. |
-| Scope drifts into WZDx | Section 3 forbids it |
-
-## 16. Compliance with event rules
+## 14. Compliance with event rules
 
 - All code written inside the window, which opened 2026-08-24 08:00 London.
 - Public repository, README with runnable setup, ~3 minute video, written summary.
