@@ -35,13 +35,14 @@ parts of it carry the design:
   HTTP on `:8792`.
 - `require_approval_for_tools: ["outreach.send"]` is the gate. When the agent reaches that tool
   the harness suspends the turn and emits `tool.approval_required`; nothing runs until a
-  `user.tool_approval` item allows or denies it. Denying leaves the case `ready` with no
-  decision recorded. The gate is enforced by the harness, above the tool, so a persuaded or
-  confused agent cannot route around it.
+  `user.tool_approval` item allows or denies it. Denying records the refusal and leaves the case
+  where it was, because a case nobody sent to is still failing. The gate is enforced by the
+  harness, above the tool, so a persuaded or confused agent cannot route around it.
 
 `sandbox`, `dynamic_sub_agents`, `generative_ui`, `ask_user_questions` and context compaction
-are on. The chat itself is TrueForge's own UI component mounted beside the queue, so the
-steward reads the register and the agent's reasoning on one screen.
+are on. The dock mounts TrueForge's own chat component beside the queue, though it currently
+fails on mount for a reason two packages upstream: see "Known and not fixed". The approval gate
+does not depend on it.
 
 ## Why
 
@@ -81,11 +82,14 @@ Those seven agencies are dark because a single repository that hosts GTFS on the
 reorganised and the paths the catalog references are gone. Writing to seven city halls would be
 seven wrong emails. None of them controls that repository.
 
-The other 25 failures are not tickets, and the catalog says so itself. It marks 20 of them
-`deprecated`, each already naming its replacement feed, and five `development`, three of those
-under `/test/`. A further seven feeds return 401 and are perfectly healthy, because the catalog
-records that they need an API key. A checker that reads only the HTTP response opens 32 tickets
-that should not exist.
+The other 24 failures in that run are not tickets, and the catalog says so itself. It marks 19
+of them `deprecated`, each already naming its replacement feed, and five `development`, three of
+those under `/test/`. A further seven feeds return 401 and are perfectly healthy, because the
+catalog records that they need an API key. A checker that reads only the HTTP response opens 31
+tickets that should not exist.
+
+Those counts move with the run, which is why they name one. `docs/SPEC.md` quotes 25, 20 and 32
+because it was measured against `data/runs/2026-08-24.json`, and both are checkable.
 
 ## Try it
 
@@ -148,9 +152,14 @@ registering, is in [`agent/README.md`](agent/README.md).
 
 `outreach.send` is the only approval-gated tool, and the gate is drawn on the case itself. When
 the harness suspends the call, the notice opens with what is about to happen, the message as
-drafted, and Approve or Deny; the register carries a banner naming the case that stopped.
-Approving posts the decision back to the harness, which is what resumes the turn. No transport
-is wired, so the message is written to `data/outbox/` and nothing leaves the machine.
+drafted, and Approve or Deny; the register carries a banner naming the case that stopped. Either
+answer posts a `user.tool_approval` back to the harness, which is what resumes the turn, and
+approving is refused if the draft has changed since it was shown. No transport is wired, so the
+message is written to `data/outbox/` and nothing leaves the machine.
+
+The chat dock is a second view, not the path to approval. It mounts TrueForge's own chat shell,
+which currently throws inside `@assistant-ui/store` on mount; the error boundary contains it and
+the register and the gate are unaffected. See "Known and not fixed" below.
 
 ## Working on it
 
@@ -165,6 +174,22 @@ npm run check        # biome, eslint, tsc, vitest, ruff, pytest
 
 Layout and the rules that govern changes are in [`CLAUDE.md`](CLAUDE.md); the build design is
 [`docs/SPEC.md`](docs/SPEC.md).
+
+## Known and not fixed
+
+Two things are broken and disclosed rather than worked around.
+
+**The chat dock does not render.** `@truefoundry/trueforge-ui` mounts and throws
+`Maximum update depth exceeded` from `UseTapEffects` inside `AuiProvider`, in
+`@assistant-ui/store`. Both packages are at their latest published version, so there is no
+upgrade to take. A React error boundary contains it, so the register and the approval gate are
+unaffected, and the case page offers the request to copy so the work is not lost. This is why
+the gate is drawn by this app rather than left to the chat.
+
+**The `casework-sop` skill does not clone inside the local sandbox.** The harness registers it,
+then its git clone fails on a macOS developer-tools error. `git ls-remote` on the same URL
+succeeds from a stripped shell, so it looks environmental rather than wrong in the skill. The
+agent runs on its AgentSpec instructions without the SOP body mounted.
 
 ## What this is not
 
