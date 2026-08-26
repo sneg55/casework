@@ -1,4 +1,8 @@
 // Synthesizes one narration clip per scene via OpenAI TTS (gpt-4o-mini-tts).
+//
+// WAV, not MP3: the assembly raises each clip by 12 to 16 dB to reach the target loudness, and
+// that lifts a lossy encoder's artifacts with it. The clips are intermediate, so there is no
+// reason to pay for a second lossy generation before the final AAC encode.
 // Reads OPENAI_API_KEY from the environment (pass via `node --env-file=...`).
 // The key is never logged. Clips are cached: a scene is re-synthesized only when
 // its narration text changes (tracked by a sidecar hash file).
@@ -23,13 +27,14 @@ const VOICE = process.env.TTS_VOICE || 'sage'
 const INSTRUCTIONS =
   'Clear, confident product-demo narration. Even pace, no hard sell. Pronounce acronyms letter by letter.'
 
-const hash = (t) => crypto.createHash('sha256').update(`${MODEL}|${VOICE}|${t}`).digest('hex').slice(0, 16)
+const FORMAT = 'wav'
+const hash = (t) => crypto.createHash('sha256').update(`${MODEL}|${VOICE}|${FORMAT}|${t}`).digest('hex').slice(0, 16)
 
 async function synth(scene) {
-  const mp3 = path.join(OUT, `${scene.id}.mp3`)
+  const clip = path.join(OUT, `${scene.id}.${FORMAT}`)
   const stamp = path.join(OUT, `${scene.id}.hash`)
   const want = hash(scene.narrate)
-  if (fs.existsSync(mp3) && fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8') === want) {
+  if (fs.existsSync(clip) && fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8') === want) {
     console.log(`  ${scene.id}: cached`)
     return
   }
@@ -41,7 +46,7 @@ async function synth(scene) {
       voice: VOICE,
       input: scene.narrate,
       instructions: INSTRUCTIONS,
-      response_format: 'mp3',
+      response_format: FORMAT,
     }),
   })
   if (!res.ok) {
@@ -49,7 +54,7 @@ async function synth(scene) {
     throw new Error(`OpenAI TTS ${res.status} for scene ${scene.id}: ${await res.text()}`)
   }
   const buf = Buffer.from(await res.arrayBuffer())
-  fs.writeFileSync(mp3, buf)
+  fs.writeFileSync(clip, buf)
   fs.writeFileSync(stamp, want)
   console.log(`  ${scene.id}: ${(buf.length / 1024).toFixed(0)} KB`)
 }

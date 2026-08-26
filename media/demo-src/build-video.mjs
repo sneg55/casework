@@ -5,7 +5,7 @@
 //     lands under TARGET seconds, padded with silence to the scene length
 // Output: out/demo.mp4 (1920x1080, H.264 + AAC).
 
-import { execFileSync } from 'child_process'
+import { execFileSync, spawnSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -21,9 +21,30 @@ const OUT = path.join(__dirname, 'out', 'demo.mp4')
 // with headroom); TAIL is the per-scene breathing room after narration ends;
 // BG is the pad color behind UI captures (match the card background).
 const W = 1920, H = 1080, FPS = 30, TAIL = 0.4, TARGET = 176, BG = '0xe9e6df'
+// Loudness. TARGET_I is where each narration clip is set, so all six match; CEILING is the
+// true-peak the limiter holds on the assembled track.
+const TARGET_I = -18, CEILING_DB = -2
 
 const probe = (f) =>
   parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nk=1:nw=1', f], { encoding: 'utf8' }).trim())
+
+// Integrated loudness of one clip, from loudnorm's measurement pass.
+//
+// The gain it implies is then applied as a plain `volume`, not by letting loudnorm normalize.
+// In one pass loudnorm runs in dynamic mode: it rides the level continuously, which on quiet
+// TTS means about 16 dB of moving gain, and that pumps audibly on speech.
+function measure(file) {
+  // loudnorm prints its measurement to stderr, so this reads stderr rather than stdout.
+  const run = spawnSync(
+    'ffmpeg',
+    ['-hide_banner', '-nostats', '-i', file, '-af', `loudnorm=I=${TARGET_I}:TP=${CEILING_DB}:print_format=json`, '-f', 'null', '-'],
+    { encoding: 'utf8' }
+  )
+  const out = run.stderr ?? ''
+  const json = out.slice(out.lastIndexOf('{'), out.lastIndexOf('}') + 1)
+  const m = JSON.parse(json)
+  return { i: parseFloat(m.input_i), tp: parseFloat(m.input_tp) }
+}
 
 const latestCapture = (name) => {
   const files = fs.readdirSync(CAPS).filter((f) => f.startsWith(`${name}-`) && f.endsWith('.mp4'))
@@ -35,15 +56,18 @@ const latestCapture = (name) => {
 // Measure narration + compute the global speed factor.
 let sumDa = 0
 for (const s of scenes) {
-  s._audio = path.join(AUDIO, `${s.id}.mp3`)
-  if (!fs.existsSync(s._audio)) throw new Error(`missing narration for ${s.id}; run tts.mjs first`)
+  // wav from tts.mjs, mp3 from the local-voice fallback.
+  s._audio = ['wav', 'mp3'].map((ext) => path.join(AUDIO, `${s.id}.${ext}`)).find((f) => fs.existsSync(f))
+  if (s._audio === undefined) throw new Error(`missing narration for ${s.id}; run tts.mjs first`)
   s._da = probe(s._audio)
+  s._loud = measure(s._audio)
   sumDa += s._da
 }
 const factor = Math.max(1, sumDa / (TARGET - scenes.length * TAIL))
 for (const s of scenes) s._len = s._da / factor + TAIL
 const total = scenes.reduce((a, s) => a + s._len, 0)
 console.log(`narration ${sumDa.toFixed(1)}s -> speed x${factor.toFixed(3)} -> final ~${total.toFixed(1)}s`)
+for (const s of scenes) console.log(`  ${s.id}: ${s._loud.i} LUFS -> ${(TARGET_I - s._loud.i).toFixed(1)} dB`)
 
 // Build one ffmpeg invocation with paired (video, audio) inputs per scene.
 const inputs = []
@@ -71,15 +95,18 @@ scenes.forEach((s, i) => {
   }
   inputs.push('-i', s._audio)
   const aIdx = idx++
+  const gain = (TARGET_I - s._loud.i).toFixed(2)
+  const tempo = factor > 1.0001 ? `atempo=${factor.toFixed(4)},` : ''
   filters.push(
-    `[${aIdx}:a]atempo=${factor.toFixed(4)},aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:${L},asetpts=N/SR/TB[a${i}]`
+    `[${aIdx}:a]${tempo}volume=${gain}dB,aresample=48000,aformat=channel_layouts=stereo,apad,atrim=0:${L},asetpts=N/SR/TB[a${i}]`
   )
   concatLabels.push(`[v${i}][a${i}]`)
 })
 filters.push(`${concatLabels.join('')}concat=n=${scenes.length}:v=1:a=1[v][araw]`)
-// Broadcast-ish loudness. Raw TTS lands around -36 dB mean, which is unwatchable on a
-// laptop speaker, and the silence padding between scenes drags the average down further.
-filters.push('[araw]loudnorm=I=-16:TP=-1.5:LRA=11[a]')
+// The static gain above leaves a few plosives above the ceiling. A limiter catches only those,
+// which is a different thing from riding the whole track.
+const limit = Math.pow(10, CEILING_DB / 20).toFixed(4)
+filters.push(`[araw]alimiter=limit=${limit}:attack=5:release=50:level=false[a]`)
 
 const args = [
   '-y', '-loglevel', 'error',
