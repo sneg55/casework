@@ -22,7 +22,8 @@
     "test:py": "uv run pytest -q",
     "lint:py": "uv run ruff check scripts tests && uv run ruff format --check scripts tests",
     "check": "npm run lint && npm run typecheck && npm run test && npm run lint:py && npm run test:py && npm run lint:dashes",
-    "lint:dashes": "python3 scripts/no_dashes.py"
+    "lint:dashes": "python3 scripts/no_dashes.py",
+    "mcp": "npm run mcp:http -w @casework/mcp"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.2",

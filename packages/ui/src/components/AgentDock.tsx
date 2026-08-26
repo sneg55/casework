@@ -4,6 +4,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 
 import { approvalRequest, HARNESS_TOKEN, HARNESS_URL, REQUEST_EVENT } from '../lib/agent'
+import { ChatBoundary } from './ChatBoundary'
 
 const Chat = lazy(async () => {
   const [{ TrueForgeUI }] = await Promise.all([
@@ -13,12 +14,19 @@ const Chat = lazy(async () => {
   return { default: TrueForgeUI }
 })
 
-/** An absent token is an absent key, not a key set to undefined. */
+/**
+ * An absent token is an absent key, not a key set to undefined. Built once, at module scope:
+ * the chat shell subscribes to this object, so a fresh one per render drives its store into
+ * "Maximum update depth exceeded" and takes the dock down. Both inputs are module constants,
+ * so there is nothing to recompute.
+ */
 function harnessServer(baseUrl: string, token: string | undefined) {
   return token === undefined
     ? ({ type: 'trueforge', baseUrl } as const)
     : ({ type: 'trueforge', baseUrl, token } as const)
 }
+
+const SERVER = HARNESS_URL === null ? null : harnessServer(HARNESS_URL, HARNESS_TOKEN)
 
 function Unconfigured({ staged }: { staged: string | null }) {
   return (
@@ -70,12 +78,14 @@ export function AgentDock({ open, onToggle }: { open: boolean; onToggle: () => v
       <button type="button" className="dock-tab" onClick={onToggle} aria-expanded={open}>
         {open ? 'Hide the agent' : 'The agent'}
       </button>
-      {!open ? null : HARNESS_URL === null ? (
+      {!open ? null : SERVER === null ? (
         <Unconfigured staged={staged} />
       ) : (
-        <Suspense fallback={<p className="dock-empty">Loading the chat shell…</p>}>
-          <Chat server={harnessServer(HARNESS_URL, HARNESS_TOKEN)} layout="dock" />
-        </Suspense>
+        <ChatBoundary>
+          <Suspense fallback={<p className="dock-empty">Loading the chat shell…</p>}>
+            <Chat server={SERVER} layout="dock" />
+          </Suspense>
+        </ChatBoundary>
       )}
     </aside>
   )
