@@ -1,13 +1,15 @@
 // The notice. Facing columns for what the catalog asks for and what is actually there, the
-// attribution with the evidence it rests on, then the message itself. Approve is not a button
-// this app owns: the gate lives in the agent, and the reason it is closed is stated.
+// attribution with the evidence it rests on, then the message itself. When the harness has a
+// suspended outreach.send for this case, the gate goes above all of it.
 import { useCallback, useEffect, useState } from 'react'
 
 import { ActionBar } from '../components/ActionBar'
+import { ApprovalGate } from '../components/ApprovalGate'
 import { Attribution } from '../components/Attribution'
 import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
 import { api, type CaseDetail } from '../lib/api'
+import { gateFor, useApprovals } from '../lib/approvals'
 import { words } from '../lib/words'
 
 function Back({ onBack }: { onBack: () => void }) {
@@ -66,6 +68,7 @@ function Facing({ detail }: { detail: CaseDetail }) {
 export function Case({ caseId, onBack }: { caseId: string; onBack: () => void }) {
   const [detail, setDetail] = useState<CaseDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const approvals = useApprovals()
 
   const load = useCallback(() => {
     api
@@ -106,9 +109,13 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
     )
   }
 
+  const gate = gateFor(approvals, detail.case_id)
+
   return (
     <>
       <Back onBack={onBack} />
+
+      {gate === null ? null : <ApprovalGate gate={gate} detail={detail} onAnswered={load} />}
 
       <div className="notice-head">
         <h2>
@@ -157,8 +164,8 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
           ))
         )}
         <span>
-          This screen cannot send. The only way a message leaves is a human approving the agent's
-          gated call.
+          This screen cannot send. It can answer the gate the harness is holding, which is a
+          different thing: with no harness running there is no suspended call to approve.
         </span>
       </p>
     </>

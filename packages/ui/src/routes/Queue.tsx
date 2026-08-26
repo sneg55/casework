@@ -8,7 +8,9 @@ import { LedgerPanel, type LedgerRequest } from '../components/LedgerPanel'
 import { Register } from '../components/Register'
 import { Singles } from '../components/Singles'
 import { Totals } from '../components/Totals'
+import { WaitingBanner } from '../components/WaitingBanner'
 import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
+import { useApprovals } from '../lib/approvals'
 import { whyNothingIsReady } from '../lib/blocking'
 
 // The one reason that says the feed is healthy rather than suppressed. It comes from
@@ -20,6 +22,7 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER)
   const [ledger, setLedger] = useState<LedgerRequest | null>(null)
+  const approvals = useApprovals()
   const openBucket = (bucket: Bucket) => {
     setLedger({ bucket })
   }
@@ -65,6 +68,8 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
 
   return (
     <>
+      <WaitingBanner approvals={approvals} cases={data.cases} onOpen={onOpen} />
+
       <div className="thesis">
         <div className="figure">
           {run.failing}

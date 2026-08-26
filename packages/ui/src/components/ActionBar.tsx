@@ -98,16 +98,16 @@ export function ActionBar({ detail, onDone }: { detail: CaseDetail; onDone: () =
         <button
           type="button"
           disabled={blocked.length > 0}
-          title="Opens the agent with the request staged. The gate itself is the harness's."
+          title="Opens the agent with the request staged. It will stop at the gate, above this page."
           onClick={() => {
             askAgent(approvalRequest(detail.docket, detail.case_id))
           }}
         >
-          Approve and send
+          Ask the agent to send
         </button>
         <span className={blocked.length === 0 ? 'blocked clear' : 'blocked'}>
           {blocked.length === 0
-            ? 'this opens the agent; approving its gate prompt is what sends'
+            ? 'the agent stops at the gate and this page asks you before anything leaves'
             : blocked.join('. And ')}
         </span>
       </div>

@@ -146,8 +146,11 @@ harness through the Vite proxy, because a standalone harness sends no CORS heade
 unset and the dock tells you what to set. The whole sequence, with the API calls that do the
 registering, is in [`agent/README.md`](agent/README.md).
 
-`outreach.send` is the only approval-gated tool. No transport is wired, so approving writes the
-message to `data/outbox/` and nothing leaves the machine.
+`outreach.send` is the only approval-gated tool, and the gate is drawn on the case itself. When
+the harness suspends the call, the notice opens with what is about to happen, the message as
+drafted, and Approve or Deny; the register carries a banner naming the case that stopped.
+Approving posts the decision back to the harness, which is what resumes the turn. No transport
+is wired, so the message is written to `data/outbox/` and nothing leaves the machine.
 
 ## Working on it
 

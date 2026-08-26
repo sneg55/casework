@@ -585,12 +585,17 @@ here rather than left to the week:
   `VITE_CASEWORK_HARNESS_URL`, and it is loaded lazily because it carries the assistant-ui
   runtime and has nothing to talk to until a harness exists. With the variable unset the dock
   renders one panel saying so and naming the variable. It never renders a chat that is not
-  connected to anything, and the OpenUI case summary and approval prompt are the harness's to
-  draw once it is.
-- **The action bar in the case route dispatches to the dock**, which is where the harness
-  raises its approval prompt. One path to `outreach.send`, not two. The read API has no send
-  route at all: it answers `405` and says where approval happens, so a UI cannot POST its way
-  past the gate and make it decorative.
+  connected to anything.
+- **The gate is drawn by this app, not by the dock.** `GET /api/approvals` derives the calls the
+  harness has suspended from its session event stream, and the case route puts that above
+  everything else on the notice: the tool, the recipient kind, the message as drafted, and two
+  buttons. The register carries a banner naming the same calls, so nobody opens twenty cases
+  looking for the one that stopped. Approving is a `user.tool_approval` item posted back to the
+  harness, the same item the harness's own chat posts, which is why this cannot become a second
+  path to `outreach.send`: the suspended call belongs to the harness and with no harness running
+  there is nothing to approve. The read API still has no send route.
+- **The action bar asks the agent to send**, which is what raises the gate. One path to
+  `outreach.send`, not two, and the button says so rather than reading as the approval itself.
 - Approve is rendered disabled with the reason next to it: the run count, the missing
   attribution, the missing channel or the missing draft, whichever is blocking. Drafting is
   disabled on the same first two reasons, because section 10 says a cause under three runs

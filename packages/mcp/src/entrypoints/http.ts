@@ -5,6 +5,7 @@
 // would make the gate decorative.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 
+import { pending, relay } from '../features/approvals/harness.js'
 import { caseView, queueRow } from '../features/cases/view.js'
 import { isBucket, ledger } from '../features/evidence/ledger.js'
 import { draftFor, latestDraft, reviseDraft } from '../features/outreach/draft.js'
@@ -122,13 +123,53 @@ function get(res: ServerResponse, url: URL, resource: string, id: string | undef
   return json(res, 404, { error: 'not found' })
 }
 
+/**
+ * The gates the harness is holding. An unreachable harness is reported as such rather than as
+ * an empty list, because "nothing is waiting" and "I cannot see what is waiting" are different
+ * answers and the screen says which one it got.
+ */
+async function approvals(res: ServerResponse): Promise<void> {
+  try {
+    return json(res, 200, { harness: true, pending: await pending(env.CASEWORK_HARNESS_ORIGIN) })
+  } catch (error: unknown) {
+    return json(res, 200, { harness: false, pending: [], error: String(error) })
+  }
+}
+
+/** Relay one answer. The suspended call belongs to the harness; this never sends anything. */
+async function decideApproval(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const input = await body(req)
+  const status = input['status']
+  if (status !== 'allow' && status !== 'deny') {
+    return json(res, 400, { error: 'status must be allow or deny' })
+  }
+  const required = ['session_id', 'thread_id', 'tool_call_id'] as const
+  for (const key of required) {
+    if (typeof input[key] !== 'string') return json(res, 400, { error: `${key} is required` })
+  }
+  try {
+    await relay(env.CASEWORK_HARNESS_ORIGIN, {
+      session_id: input['session_id'] ?? '',
+      thread_id: input['thread_id'] ?? '',
+      tool_call_id: input['tool_call_id'] ?? '',
+      status,
+      ...(input['reason'] === undefined ? {} : { reason: input['reason'] }),
+    })
+    return json(res, 200, { relayed: status })
+  } catch (error: unknown) {
+    return json(res, 502, { error: String(error) })
+  }
+}
+
 async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const [root, resource, id, action] = url.pathname.split('/').filter((p) => p !== '')
 
   if (req.method === 'OPTIONS') return json(res, 204, {})
   if (root !== 'api' || resource === undefined) return json(res, 404, { error: 'not found' })
+  if (req.method === 'GET' && resource === 'approvals') return await approvals(res)
   if (req.method === 'GET') return get(res, url, resource, id)
+  if (req.method === 'POST' && resource === 'approvals') return await decideApproval(req, res)
   if (req.method === 'POST' && resource === 'cases' && id !== undefined) {
     return await post(id, action, req, res)
   }

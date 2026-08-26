@@ -33,6 +33,10 @@ const envSchema = z.object({
   // on this machine and by nothing on the network.
   CASEWORK_MCP_HOST: z.string().min(1).default('127.0.0.1'),
 
+  // Where the read API relays an approval decision. The harness holds the suspended call, so
+  // an unreachable origin means no gate can be answered rather than one being answered locally.
+  CASEWORK_HARNESS_ORIGIN: z.string().url().default('http://localhost:8790'),
+
   CASEWORK_RUN_DIR: rootPath('data/runs'),
   CASEWORK_OUTBOX_DIR: rootPath('data/outbox'),
   CASEWORK_DB: rootPath('data/casework.sqlite'),

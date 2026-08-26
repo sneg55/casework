@@ -108,8 +108,41 @@ async function post<T>(path: string, payload: unknown = {}): Promise<T> {
   return (await res.json()) as T
 }
 
+/** A tool call the harness has suspended. The gate is the harness's; this is the view of it. */
+export interface PendingApproval {
+  session_id: string
+  session_title: string
+  thread_id: string
+  tool_call_id: string
+  tool_name: string
+  arguments: Record<string, unknown>
+  case_id: string | null
+  said: string
+  requested_at: string
+}
+
+/** `harness: false` means the gate cannot be seen, which is not the same as nothing waiting. */
+export interface Approvals {
+  harness: boolean
+  pending: PendingApproval[]
+  error?: string
+}
+
 export const api = {
   queue: async (): Promise<Queue> => await get<Queue>('/api/queue'),
+  approvals: async (): Promise<Approvals> => await get<Approvals>('/api/approvals'),
+  answer: async (
+    gate: PendingApproval,
+    status: 'allow' | 'deny',
+    reason?: string,
+  ): Promise<{ relayed?: string; error?: string }> =>
+    await post('/api/approvals', {
+      session_id: gate.session_id,
+      thread_id: gate.thread_id,
+      tool_call_id: gate.tool_call_id,
+      status,
+      reason,
+    }),
   case: async (id: string): Promise<CaseDetail> => await get<CaseDetail>(`/api/cases/${id}`),
   ledger: async (bucket: Bucket, reason?: string): Promise<Ledger> => {
     const query = new URLSearchParams({ bucket })
