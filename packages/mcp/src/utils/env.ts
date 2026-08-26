@@ -36,6 +36,13 @@ const envSchema = z.object({
   // Where the read API relays an approval decision. The harness holds the suspended call, so
   // an unreachable origin means no gate can be answered rather than one being answered locally.
   CASEWORK_HARNESS_ORIGIN: z.string().url().default('http://localhost:8790'),
+  // Sent as a bearer token when the harness is behind auth. Unset for a local standalone one.
+  CASEWORK_HARNESS_TOKEN: z.string().min(1).optional(),
+
+  // The read API answers a gate, so it is loopback by default and names the one browser origin
+  // it will accept rather than echoing every caller.
+  CASEWORK_API_HOST: z.string().min(1).default('127.0.0.1'),
+  CASEWORK_UI_ORIGIN: z.string().url().default('http://localhost:5273'),
 
   CASEWORK_RUN_DIR: rootPath('data/runs'),
   CASEWORK_OUTBOX_DIR: rootPath('data/outbox'),

@@ -103,3 +103,25 @@ describe('openGates', () => {
     expect(gates[0]?.tool_name).toBe('unknown')
   })
 })
+
+describe('a bounded sweep', () => {
+  it('says when it did not look at every session, so a short list is not read as quiet', async () => {
+    const { pending } = await import('../src/features/approvals/harness.js')
+    const sessions = Array.from({ length: 4 }, (_, i) => ({ id: `s${String(i)}`, title: '' }))
+    const original = globalThis.fetch
+    globalThis.fetch = ((url: string | URL) =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ data: String(url).endsWith('/sessions') ? sessions : [] }),
+      })) as unknown as typeof fetch
+
+    try {
+      const scan = await pending('http://harness.invalid', undefined, 2)
+      expect(scan.complete).toBe(false)
+      expect(scan.sessions_scanned).toBe(2)
+      expect(scan.sessions_total).toBe(4)
+    } finally {
+      globalThis.fetch = original
+    }
+  })
+})

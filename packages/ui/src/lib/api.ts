@@ -125,6 +125,10 @@ export interface PendingApproval {
 export interface Approvals {
   harness: boolean
   pending: PendingApproval[]
+  /** False when the sweep was truncated, so an open gate may be missing from `pending`. */
+  complete: boolean
+  sessions_scanned: number
+  sessions_total: number
   error?: string
 }
 
@@ -134,6 +138,8 @@ export const api = {
   answer: async (
     gate: PendingApproval,
     status: 'allow' | 'deny',
+    // The draft the steward actually read. The API refuses an approval if it has moved on.
+    draftSeen: string | undefined,
     reason?: string,
   ): Promise<{ relayed?: string; error?: string }> =>
     await post('/api/approvals', {
@@ -141,6 +147,7 @@ export const api = {
       thread_id: gate.thread_id,
       tool_call_id: gate.tool_call_id,
       status,
+      draft_seen: draftSeen,
       reason,
     }),
   case: async (id: string): Promise<CaseDetail> => await get<CaseDetail>(`/api/cases/${id}`),

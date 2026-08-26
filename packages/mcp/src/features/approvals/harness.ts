@@ -5,17 +5,27 @@
 // there is nothing to approve, which is the property the gate is for.
 import { AppError, ErrorIds } from '../../constants/errorIds.js'
 import { type EventRow, openGates } from './events.js'
-import type { Decision, PendingApproval } from './types.js'
+import type { Decision, PendingApproval, Scan } from './types.js'
 
+// Per request, not per scan: one signal shared across a session list plus N event reads gives
+// the whole sweep four seconds, so a merely slow harness reads as an absent one.
 const TIMEOUT_MS = 4000
+const SESSION_LIMIT = 25
 
 interface Session {
   id: string
   title?: string
 }
 
-async function get(origin: string, path: string, signal: AbortSignal): Promise<unknown> {
-  const response = await fetch(`${origin}${path}`, { signal })
+function headers(token: string | undefined): Record<string, string> {
+  return token === undefined ? {} : { Authorization: `Bearer ${token}` }
+}
+
+async function get(origin: string, path: string, token: string | undefined): Promise<unknown> {
+  const response = await fetch(`${origin}${path}`, {
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    headers: headers(token),
+  })
   if (!response.ok) {
     throw new AppError(ErrorIds.NET_UNAVAILABLE, 'the harness did not answer', {
       path,
@@ -35,25 +45,35 @@ function dataOf(payload: unknown): unknown[] {
 }
 
 /**
- * Every gate the harness is holding, across sessions, newest session first. `sessions` is
- * bounded because the harness returns them newest first and a gate lives in a running turn.
+ * Every gate the harness is holding, newest session first. The sweep is bounded, and `complete`
+ * says whether it was: a truncated scan that reported a short list would read as "nothing is
+ * waiting" for a gate that is still open.
  */
-export async function pending(origin: string, limit = 10): Promise<PendingApproval[]> {
-  const signal = AbortSignal.timeout(TIMEOUT_MS)
-  const sessions = dataOf(await get(origin, '/api/v1/sessions', signal)) as Session[]
+export async function pending(
+  origin: string,
+  token?: string,
+  limit = SESSION_LIMIT,
+): Promise<Scan> {
+  const sessions = dataOf(await get(origin, '/api/v1/sessions', token)) as Session[]
+  const looked = sessions.slice(0, limit)
   const gates: PendingApproval[] = []
 
-  for (const session of sessions.slice(0, limit)) {
+  for (const session of looked) {
     const rows = dataOf(
-      await get(origin, `/api/v1/sessions/${session.id}/events`, signal),
+      await get(origin, `/api/v1/sessions/${session.id}/events`, token),
     ) as EventRow[]
     gates.push(...openGates(rows, { id: session.id, title: session.title ?? '' }))
   }
-  return gates
+  return {
+    pending: gates,
+    sessions_scanned: looked.length,
+    sessions_total: sessions.length,
+    complete: looked.length === sessions.length,
+  }
 }
 
 /** Post the human's answer back as the turn input item the harness is waiting for. */
-export async function relay(origin: string, decision: Decision): Promise<void> {
+export async function relay(origin: string, decision: Decision, token?: string): Promise<void> {
   const approval =
     decision.status === 'allow'
       ? { status: 'allow' as const }
@@ -64,7 +84,7 @@ export async function relay(origin: string, decision: Decision): Promise<void> {
 
   const response = await fetch(`${origin}/api/v1/sessions/${decision.session_id}/turns`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers(token) },
     signal: AbortSignal.timeout(TIMEOUT_MS),
     body: JSON.stringify({
       input: [

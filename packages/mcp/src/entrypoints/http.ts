@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // The read API the queue and case routes are built on. Deliberately narrow: it can read the
-// store and it can draft, revise, reject and snooze. It cannot send. Approval goes through
-// the agent, where the harness gate lives, and a UI that could POST its way past that gate
-// would make the gate decorative.
+// store, draft, revise, reject and snooze, and relay a human's answer to a call the harness has
+// suspended. It still cannot send: /api/cases/:id/send answers 405, and an approval is a
+// user.tool_approval posted to the harness, which is the only thing that can resume the call.
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 
 import { pending, relay } from '../features/approvals/harness.js'
@@ -23,7 +23,9 @@ function json(res: ServerResponse, status: number, payload: unknown): void {
     // A queue read must never come from a cache: the run, the state and the draft change
     // under the reader while the page is open.
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
+    // Named rather than wildcarded: POST /api/approvals releases a call the harness has
+    // suspended, so any page in the browser must not be able to reach it.
+    'Access-Control-Allow-Origin': env.CASEWORK_UI_ORIGIN,
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   })
@@ -130,10 +132,29 @@ function get(res: ServerResponse, url: URL, resource: string, id: string | undef
  */
 async function approvals(res: ServerResponse): Promise<void> {
   try {
-    return json(res, 200, { harness: true, pending: await pending(env.CASEWORK_HARNESS_ORIGIN) })
+    const scan = await pending(env.CASEWORK_HARNESS_ORIGIN, env.CASEWORK_HARNESS_TOKEN)
+    return json(res, 200, { harness: true, ...scan })
   } catch (error: unknown) {
-    return json(res, 200, { harness: false, pending: [], error: String(error) })
+    return json(res, 200, {
+      harness: false,
+      pending: [],
+      complete: false,
+      sessions_scanned: 0,
+      sessions_total: 0,
+      error: String(error),
+    })
   }
+}
+
+/**
+ * A steward approves the message they were shown. `outreach.send` reads the draft again when
+ * the turn resumes, so a redraft between the two would send text nobody read. The client sends
+ * back the draft it rendered and this refuses if it is no longer the current one.
+ */
+function draftMoved(caseId: string, seen: string | undefined): boolean {
+  const current = latestDraft(store, caseId)
+  if (current === undefined) return true
+  return seen !== current.generated_at
 }
 
 /** Relay one answer. The suspended call belongs to the harness; this never sends anything. */
@@ -143,18 +164,44 @@ async function decideApproval(req: IncomingMessage, res: ServerResponse): Promis
   if (status !== 'allow' && status !== 'deny') {
     return json(res, 400, { error: 'status must be allow or deny' })
   }
-  const required = ['session_id', 'thread_id', 'tool_call_id'] as const
-  for (const key of required) {
+  for (const key of ['session_id', 'thread_id', 'tool_call_id'] as const) {
     if (typeof input[key] !== 'string') return json(res, 400, { error: `${key} is required` })
   }
+
+  let gate
   try {
-    await relay(env.CASEWORK_HARNESS_ORIGIN, {
-      session_id: input['session_id'] ?? '',
-      thread_id: input['thread_id'] ?? '',
-      tool_call_id: input['tool_call_id'] ?? '',
-      status,
-      ...(input['reason'] === undefined ? {} : { reason: input['reason'] }),
+    const scan = await pending(env.CASEWORK_HARNESS_ORIGIN, env.CASEWORK_HARNESS_TOKEN)
+    gate = scan.pending.find(
+      (g) => g.session_id === input['session_id'] && g.tool_call_id === input['tool_call_id'],
+    )
+  } catch (error: unknown) {
+    return json(res, 502, { error: String(error) })
+  }
+  // An id the harness is not currently holding is not a decision, whoever sent it.
+  if (gate === undefined) return json(res, 409, { error: 'that call is not waiting for an answer' })
+
+  if (
+    status === 'allow' &&
+    gate.case_id !== null &&
+    draftMoved(gate.case_id, input['draft_seen'])
+  ) {
+    return json(res, 409, {
+      error: 'the draft changed since it was shown. Reload the case and read it again.',
     })
+  }
+
+  try {
+    await relay(
+      env.CASEWORK_HARNESS_ORIGIN,
+      {
+        session_id: gate.session_id,
+        thread_id: gate.thread_id,
+        tool_call_id: gate.tool_call_id,
+        status,
+        ...(input['reason'] === undefined ? {} : { reason: input['reason'] }),
+      },
+      env.CASEWORK_HARNESS_TOKEN,
+    )
     return json(res, 200, { relayed: status })
   } catch (error: unknown) {
     return json(res, 502, { error: String(error) })
@@ -180,8 +227,7 @@ createServer((req, res) => {
   void route(req, res).catch((error: unknown) => {
     json(res, 500, { error: String(error) })
   })
-}).listen(env.CASEWORK_API_PORT, () => {
-  process.stdout.write(
-    `casework read API on http://localhost:${String(env.CASEWORK_API_PORT)}/api/queue\n`,
-  )
+}).listen(env.CASEWORK_API_PORT, env.CASEWORK_API_HOST, () => {
+  const where = `${env.CASEWORK_API_HOST}:${String(env.CASEWORK_API_PORT)}`
+  process.stdout.write(`casework read API on http://${where}/api/queue\n`)
 })

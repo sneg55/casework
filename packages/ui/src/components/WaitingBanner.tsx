@@ -15,7 +15,31 @@ export function WaitingBanner({
   cases: QueueCase[]
   onOpen: (caseId: string) => void
 }) {
-  if (approvals.pending.length === 0) return null
+  // Not the same as nothing waiting: the harness could be holding a call nobody can see.
+  if (!approvals.harness) {
+    return (
+      <div className="waiting unseen">
+        <span className="waiting-lamp" aria-hidden="true" />
+        <p>
+          The harness is not answering, so whether the agent is waiting on you cannot be read.
+          Approving needs it: the suspended call is the harness's, not this app's.
+        </p>
+      </div>
+    )
+  }
+
+  if (approvals.pending.length === 0) {
+    if (approvals.complete) return null
+    return (
+      <div className="waiting unseen">
+        <span className="waiting-lamp" aria-hidden="true" />
+        <p>
+          Nothing is waiting in the {approvals.sessions_scanned} most recent sessions, but there are{' '}
+          {approvals.sessions_total}. An older gate would not appear here.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="waiting">

@@ -115,7 +115,11 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
     <>
       <Back onBack={onBack} />
 
-      {gate === null ? null : <ApprovalGate gate={gate} detail={detail} onAnswered={load} />}
+      {/* Keyed on the call: a second gate on the same case must arrive on a fresh component,
+          not inherit the first one's answered state. */}
+      {gate === null ? null : (
+        <ApprovalGate key={gate.tool_call_id} gate={gate} detail={detail} onAnswered={load} />
+      )}
 
       <div className="notice-head">
         <h2>

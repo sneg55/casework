@@ -175,3 +175,15 @@
     flex: 1 1 auto;
   }
 }
+
+/* Cannot see, as distinct from nothing waiting. Muted, because it is not a call to act. */
+.waiting.unseen {
+  border-color: var(--rule);
+}
+.waiting.unseen .waiting-lamp {
+  background: var(--lamp-off);
+}
+.waiting.unseen p {
+  font-weight: 400;
+  color: var(--ink-soft);
+}

@@ -16,6 +16,14 @@ export interface PendingApproval {
   requested_at: string
 }
 
+/** A bounded sweep of the harness. `complete` false means the list may be missing a gate. */
+export interface Scan {
+  pending: PendingApproval[]
+  sessions_scanned: number
+  sessions_total: number
+  complete: boolean
+}
+
 export interface Decision {
   session_id: string
   thread_id: string

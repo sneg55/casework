@@ -9,8 +9,18 @@ import { type Approvals, api, type PendingApproval } from './api'
 
 const EVERY_MS = 4000
 
+const UNREAD: Approvals = {
+  harness: false,
+  pending: [],
+  complete: false,
+  sessions_scanned: 0,
+  sessions_total: 0,
+}
+
 export function useApprovals(): Approvals {
-  const [state, setState] = useState<Approvals>({ harness: true, pending: [] })
+  // Starts unread rather than empty: until the first answer lands, "nothing is waiting" is a
+  // claim this app has not yet earned.
+  const [state, setState] = useState<Approvals>(UNREAD)
 
   useEffect(() => {
     let live = true
@@ -21,8 +31,8 @@ export function useApprovals(): Approvals {
           if (live) setState(next)
         })
         .catch(() => {
-          // The read API is down, which its own error surface already reports.
-          if (live) setState({ harness: false, pending: [] })
+          // The read API is down, so nothing can be said about what is waiting.
+          if (live) setState(UNREAD)
         })
     }
     read()

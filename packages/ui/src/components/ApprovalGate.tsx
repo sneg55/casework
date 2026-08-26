@@ -40,7 +40,12 @@ export function ApprovalGate({
   const answer = (status: 'allow' | 'deny') => {
     setState(status)
     api
-      .answer(gate, status, status === 'deny' ? 'The steward declined at the gate.' : undefined)
+      .answer(
+        gate,
+        status,
+        detail.draft?.generated_at,
+        status === 'deny' ? 'The steward declined at the gate.' : undefined,
+      )
       .then((result) => {
         if (result.error !== undefined) {
           setFailure(result.error)
