@@ -74,6 +74,9 @@ describe('casework-mcp', () => {
   })
 
   it('refuses to send a case that has not cleared the three-run rule', async () => {
+    // Set the counter rather than relying on how many runs happen to be committed: once a
+    // third run lands on disk every case clears the rule and this stops testing the refusal.
+    store.db.prepare('UPDATE cases SET consecutive_runs = 1').run()
     const refusal = z
       .object({ refused: z.string() })
       .parse(await call('outreach.send', { case_id: await firstCaseId() }))
@@ -81,10 +84,12 @@ describe('casework-mcp', () => {
   })
 
   it('refuses to draft a case that has not cleared the three-run rule', async () => {
+    store.db.prepare('UPDATE cases SET consecutive_runs = 1').run()
     const refusal = z
       .object({ refused: z.string() })
       .parse(await call('outreach.draft', { case_id: await firstCaseId() }))
     expect(refusal.refused).toContain('three-run rule')
+    expect(refusal.refused).toContain('1 of 3')
   })
 
   it('refuses to draft a case that reached three runs unattributed', async () => {
@@ -139,7 +144,9 @@ describe('casework-mcp', () => {
       .parse(await call('cases.build'))
     // Whichever run is newest: a date captured tomorrow must not fail the suite.
     expect(built.run_date).toBe(latestRunDate())
-    expect(built.cases_persisted).toBe(18)
+    // The claim in the title is the collapse, not a magic number: every committed run adds
+    // feeds and causes, and a count pinned to one capture only ever holds for that capture.
+    expect(built.cases_persisted).toBeGreaterThan(0)
 
     const queue = z
       .object({
@@ -160,7 +167,8 @@ describe('casework-mcp', () => {
       })
       .parse(await call('cases.list'))
 
-    expect(queue.cases).toHaveLength(18)
+    // What was built is what is listed. That invariant holds for every capture; the count does not.
+    expect(queue.cases).toHaveLength(built.cases_persisted)
     const [first] = queue.cases
     expect(first?.cause_kind).toBe('code_host_path_removed')
     expect(first?.agency_count).toBe(7)
