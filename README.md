@@ -11,6 +11,38 @@ Status: the probe, the MCP server, attribution, the drafts, the gate and the scr
 The agent that drives them needs a TrueForge harness you supply. See
 [`docs/SPEC.md`](docs/SPEC.md).
 
+## What the agent does, and how it uses TrueForge
+
+A steward opens the dock, says "work the queue", and the agent does one pass of the standing
+orders. It calls `cases.build` to replay the captured runs into grouped causes, `cases.attribute`
+to name the party each cause belongs to and gather the evidence for that claim, and
+`outreach.draft` to write the message from what was observed rather than from a template. Then
+it stops. Approving is the steward's move, and the agent cannot make it.
+
+The harness is what makes the stopping real rather than a promise in a prompt.
+[`agent/casework.agent.json`](agent/casework.agent.json) is a TrueForge AgentSpec, and four
+parts of it carry the design:
+
+- `model.name` is `anthropic/claude-sonnet-5`, resolved against a provider key held in the
+  harness settings. No key, no model name and no address is in this repository.
+- `skills` references `casework-sop` by name. The body is
+  [`skills/casework-sop/SKILL.md`](skills/casework-sop/SKILL.md) and the mount comes from the
+  harness skill store, so the rules the agent follows are registered, versioned and swappable
+  without touching the agent.
+- `mcp_servers` registers `casework` and preloads `cases.list` and `cases.build`, so the first
+  turn opens on the real queue instead of on the agent asking what it is looking at. The
+  harness registers remote servers only, which is why `casework-mcp` also serves streamable
+  HTTP on `:8792`.
+- `require_approval_for_tools: ["outreach.send"]` is the gate. When the agent reaches that tool
+  the harness suspends the turn and emits `tool.approval_required`; nothing runs until a
+  `user.tool_approval` item allows or denies it. Denying leaves the case `ready` with no
+  decision recorded. The gate is enforced by the harness, above the tool, so a persuaded or
+  confused agent cannot route around it.
+
+`sandbox`, `dynamic_sub_agents`, `generative_ui`, `ask_user_questions` and context compaction
+are on. The chat itself is TrueForge's own UI component mounted beside the queue, so the
+steward reads the register and the agent's reasoning on one screen.
+
 ## Why
 
 Spec validators answer "is this feed well formed". Scorecards answer "is it fresh". Alert
