@@ -104,12 +104,15 @@ Step 2 attributes as well as groups. A case with no attribution has no party to 
 the queue row says so. Attribution reads the GitHub API and re-probes replacement feeds, so it
 is the one step that touches the network after a run is captured.
 
-The agent runs on TrueForge and needs three more things: a model FQN from the TrueFoundry
-gateway, the `casework-sop` skill registered with the harness skill store, and `casework-mcp`
-registered as an MCP server (`npm run start -w @casework/mcp`). Point
-`VITE_CASEWORK_HARNESS_URL` at the harness API root and its chat mounts in the dock beside the
-screens; leave it unset and the dock tells you what to set. See
-[`agent/README.md`](agent/README.md).
+The agent runs on TrueForge. Start the harness with `npx @truefoundry/trueforge`, which runs
+standalone on `:8790` against its own SQLite and needs no TrueFoundry account: a provider API
+key is entered in the harness itself and never reaches this repository. Then register the
+`casework-sop` skill and `casework-mcp`, which the harness reaches over HTTP on
+`http://localhost:8792/mcp` (`npm run mcp`), because it registers remote servers only. Set
+`CASEWORK_HARNESS_ORIGIN` and leave `VITE_CASEWORK_HARNESS_URL=/harness`: the dock reaches the
+harness through the Vite proxy, because a standalone harness sends no CORS headers. Leave it
+unset and the dock tells you what to set. The whole sequence, with the API calls that do the
+registering, is in [`agent/README.md`](agent/README.md).
 
 `outreach.send` is the only approval-gated tool. No transport is wired, so approving writes the
 message to `data/outbox/` and nothing leaves the machine.

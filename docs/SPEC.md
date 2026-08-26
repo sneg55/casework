@@ -189,11 +189,11 @@ the attribution the agent would produce, but the fan-out itself is the harness's
   `casework-sop` has to be registered with the running harness. Committing `SKILL.md` to this
   repository is not by itself enough, and registering it is part of the setup the README gives
   a judge.
-- **A model is required**, as `model.name` in FQN form. Casework routes through the
-  **TrueFoundry LLM gateway**, which keeps the model swappable and keeps the whole stack on the
-  sponsor's surfaces. The cost is that a judge needs a gateway account, so the README opens with
-  that step and states the exact model FQN the demo was recorded against. Nothing else in the
-  design depends on the choice.
+- **A model is required**, as `model.name`. A standalone harness resolves
+  `provider/model` against a provider key entered in its own settings, so a judge needs an API
+  key and no TrueFoundry account. `agent/casework.agent.json` names
+  `anthropic/claude-sonnet-5`, which is what the demo was recorded against. Nothing else in the
+  design depends on the choice, and the key never enters this repository.
 
 **Stack.** Two languages, split along the sandbox boundary, because that is where the harness
 itself splits.
