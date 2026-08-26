@@ -29,6 +29,9 @@ const envSchema = z.object({
   CASEWORK_API_PORT: z.coerce.number().int().positive().default(8791),
   // 8790 is the harness's own port, so the MCP door sits above the read API's.
   CASEWORK_MCP_PORT: z.coerce.number().int().positive().default(8792),
+  // The MCP door fronts outreach.send. Loopback by default so it is reachable by the harness
+  // on this machine and by nothing on the network.
+  CASEWORK_MCP_HOST: z.string().min(1).default('127.0.0.1'),
 
   CASEWORK_RUN_DIR: rootPath('data/runs'),
   CASEWORK_OUTBOX_DIR: rootPath('data/outbox'),

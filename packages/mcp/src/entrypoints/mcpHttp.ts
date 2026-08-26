@@ -19,13 +19,6 @@ import { env } from '../utils/env.js'
 // which is why the sessionless transport below costs nothing.
 const store = openStore(env.CASEWORK_DB)
 
-function cors(res: ServerResponse): void {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Mcp-Session-Id')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
-  res.setHeader('Access-Control-Expose-Headers', 'Mcp-Session-Id')
-}
-
 /**
  * A transport and a server per request. A stateless transport carries one initialize, so a
  * shared instance answers the first caller and returns 500 to the second, which is how the
@@ -48,12 +41,9 @@ async function handleMcp(req: IncomingMessage, res: ServerResponse): Promise<voi
 }
 
 const http = createHttpServer((req: IncomingMessage, res: ServerResponse) => {
-  cors(res)
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204)
-    res.end()
-    return
-  }
+  // No CORS headers: the only client is the harness process on this machine, which is not a
+  // browser. Nothing in packages/ui addresses this port.
+
   // A liveness probe that does not open an MCP session, so `curl` can answer "is it up".
   if (req.method === 'GET' && (req.url ?? '').startsWith('/health')) {
     res.writeHead(200, { 'Content-Type': 'application/json' })
@@ -73,6 +63,9 @@ process.on('SIGINT', () => {
   process.exit(0)
 })
 
-http.listen(env.CASEWORK_MCP_PORT, () => {
-  process.stderr.write(`casework-mcp on http://localhost:${String(env.CASEWORK_MCP_PORT)}/mcp\n`)
+// Bound to CASEWORK_MCP_HOST, loopback by default. These tools edit case state and write the
+// outbox, so the door does not open onto the network unless someone names an interface.
+http.listen(env.CASEWORK_MCP_PORT, env.CASEWORK_MCP_HOST, () => {
+  const where = `${env.CASEWORK_MCP_HOST}:${String(env.CASEWORK_MCP_PORT)}`
+  process.stderr.write(`casework-mcp on http://${where}/mcp\n`)
 })

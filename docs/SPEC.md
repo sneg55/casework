@@ -216,7 +216,7 @@ itself splits.
   ├── scripts/case_document.py       the machine-readable form of a run
   ├── scripts/catalog_query.py       catalog summary, or the rows asked for
   ├── data/runs/<date>.json          one capture per run, committed
-  ├── packages/mcp/                  casework-mcp, TypeScript, stdio
+  ├── packages/mcp/                  casework-mcp, TypeScript, stdio and HTTP
   ├── packages/ui/                   React shell embedding the SDK
   ├── agent/casework.agent.json      AgentSpec: model, skills, mcp_servers, approval
   ├── skills/casework-sop/SKILL.md   registered with the harness skill store
@@ -254,7 +254,19 @@ right place; it is not a claim that mail was sent.
 
 ## 5. The MCP server
 
-`casework-mcp`, TypeScript, stdio. Tools:
+`casework-mcp`, TypeScript. One server, two doors onto the same tools, store and gate:
+
+- **stdio**, `npm run start -w @casework/mcp`. What a local MCP client launches as a child
+  process.
+- **streamable HTTP**, `npm run mcp`, serving `POST /mcp` on `CASEWORK_MCP_HOST:CASEWORK_MCP_PORT`
+  (`127.0.0.1:8792`) plus a `GET /health` liveness probe. A TrueForge harness registers remote
+  servers only, so this is the door it uses. A transport and a server are constructed per
+  request and share the process's SQLite handle: a stateless transport carries a single
+  `initialize`, so a shared one answers the first caller and fails the next. No CORS headers are
+  sent and the listener is loopback by default, because the only client is a harness process on
+  the same machine and these tools reach `outreach.send`.
+
+Tools:
 
 | Tool | Reads/writes | Notes |
 |---|---|---|

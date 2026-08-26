@@ -22,27 +22,28 @@ Run the probe against California's public GTFS feeds and the answer is not what 
 shows:
 
 ```
-  live run 2026-08-25, 1 prior run(s) on file
+  replay 2026-08-26, 2 prior run(s) on file
   checked 249   healthy 196   failing 53
-  suppressed: 7 declare a credential, 25 the catalog has already retired or not yet shipped
-  actionable failures 28
+  suppressed: 7 declare a credential, 24 the catalog has already retired or not yet shipped
+  actionable failures 29
 
-    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository     run 2/3
+    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository     run 3/3
       +4 corroborating: catalog already re-points this entry
-    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host_operator  run 2/3
+    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host_operator  run 3/3
       +5 corroborating: catalog marks this entry pre-production
       +1 corroborating: catalog already re-points this entry
-    1 agency    transitfeeds.com                                     deprecated_service     -> catalog        run 2/3
+    1 agency    transitfeeds.com                                     deprecated_service     -> catalog        run 3/3
       +6 corroborating: catalog already re-points this entry
 
-  grouped 13 failures into 3 cases; 15 individual
-  candidate causes 18, against 53 tickets a per-feed view would open
-  past the 3-day rule, so drafted: 0
+  grouped 13 failures into 3 cases; 16 individual
+  candidate causes 19, against 53 tickets a per-feed view would open
+  past the 3-day rule, so drafted: 16
 ```
 
-The 2026-08-24 and 2026-08-25 runs give the same three causes at the same sizes and the same
-249/196/53/28 counts. Both files are committed, so you can check that yourself. The counter
-reads 2/3 because it counts those two files; there is no stored streak to fake.
+The 2026-08-24 and 2026-08-25 runs give the same three causes at the same sizes. All three
+files are committed, so you can check that yourself. The counter reads 3/3 because it counts
+those three files; there is no stored streak to fake, and until the third one landed nothing
+could be drafted at all.
 
 Those seven agencies are dark because a single repository that hosts GTFS on their behalf was
 reorganised and the paths the catalog references are gone. Writing to seven city halls would be
@@ -65,7 +66,7 @@ No credentials, no API key, nothing to install. It reads the public
 writes the run to `data/runs/<date>.json`. To replay a captured run offline, fetching nothing:
 
 ```bash
-python3 scripts/probe_catalog.py --replay data/runs/2026-08-25.json
+python3 scripts/probe_catalog.py --replay data/runs/2026-08-26.json
 ```
 
 The 3-day rule counts the files in `data/runs/`, so the day counter is real history. A day

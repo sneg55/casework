@@ -10,9 +10,21 @@ const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 
 const HARNESS_PROXY = '/harness'
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, repoRoot, 'CASEWORK_')
+export default defineConfig(({ mode, command }) => {
+  const env = loadEnv(mode, repoRoot, ['CASEWORK_', 'VITE_CASEWORK_'])
   const harness = env['CASEWORK_HARNESS_ORIGIN'] ?? 'http://localhost:8790'
+
+  // The proxy below is a dev-server rule and does not survive `vite build`. A build that bakes
+  // in a relative harness URL would ship a dock that calls itself, so it stops here instead.
+  const configured = env['VITE_CASEWORK_HARNESS_URL'] ?? ''
+  if (command === 'build' && configured.startsWith('/')) {
+    throw new Error(
+      `VITE_CASEWORK_HARNESS_URL is ${configured}, which only resolves behind the dev proxy. ` +
+        'For a build, either set an absolute harness origin that sends CORS headers, or serve ' +
+        `${configured} from a reverse proxy in front of the built UI.`,
+    )
+  }
+
   return {
     plugins: [react()],
     envDir: repoRoot,
