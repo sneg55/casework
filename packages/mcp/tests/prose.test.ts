@@ -6,14 +6,14 @@ import { readable, withoutDashes } from '../src/utils/prose.js'
 
 describe('withoutDashes', () => {
   it('replaces an em dash used as punctuation with a comma', () => {
-    expect(withoutDashes('The draft is well-formed — factual, and cites each 404.')).toBe(
+    expect(withoutDashes('The draft is well-formed \u2014 factual, and cites each 404.')).toBe(
       'The draft is well-formed, factual, and cites each 404.',
     )
   })
 
   it('replaces an en dash the same way, spaced or not', () => {
-    expect(withoutDashes('two things–one answer')).toBe('two things, one answer')
-    expect(withoutDashes('two things – one answer')).toBe('two things, one answer')
+    expect(withoutDashes('two things\u2013one answer')).toBe('two things, one answer')
+    expect(withoutDashes('two things \u2013 one answer')).toBe('two things, one answer')
   })
 
   it('leaves hyphens and ranges alone', () => {
@@ -45,6 +45,6 @@ describe('readable', () => {
   })
 
   it('still removes a dash', () => {
-    expect(readable('well-formed — factual')).toBe('well-formed, factual')
+    expect(readable('well-formed \u2014 factual')).toBe('well-formed, factual')
   })
 })
