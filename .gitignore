@@ -26,9 +26,3 @@ data/casework.sqlite*
 
 # impeccable scratch state, not part of the project
 .impeccable/
-
-# demo video build: dependencies, raw captures and the rendered mp4 are all reproducible
-media/demo-src/node_modules/
-media/demo-src/out/
-media/demo-src/testreel-output/
-media/demo-src/package-lock.json
