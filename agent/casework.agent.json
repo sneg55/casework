@@ -1,7 +1,16 @@
 {
-  "model": { "name": "truefoundry/casework-model", "params": { "max_tokens": 8192 } },
+  "model": {
+    "name": "anthropic/claude-sonnet-5",
+    "params": {
+      "max_tokens": 8192
+    }
+  },
   "instructions": "You work a transit data steward's feed-failure queue. Follow the casework-sop skill exactly: it carries the three-run rule, the suppression rules, the attribution rules and the message tone. Group by cause, attribute with evidence, draft from what was observed, and stop for a human before anything is sent. Never ask for or record a contact address.",
-  "skills": [{ "name": "casework-sop" }],
+  "skills": [
+    {
+      "name": "casework-sop"
+    }
+  ],
   "mcp_servers": [
     {
       "name": "casework",
@@ -12,13 +21,25 @@
     }
   ],
   "config": {
-    "sandbox": { "enabled": true },
-    "dynamic_sub_agents": { "enabled": true },
-    "generative_ui": { "enabled": true },
-    "ask_user_questions": { "enabled": true },
+    "sandbox": {
+      "enabled": true
+    },
+    "dynamic_sub_agents": {
+      "enabled": true
+    },
+    "generative_ui": {
+      "enabled": true
+    },
+    "ask_user_questions": {
+      "enabled": true
+    },
     "context_management": {
-      "compaction": { "enabled": true },
-      "large_tool_response": { "enabled": true }
+      "compaction": {
+        "enabled": true
+      },
+      "large_tool_response": {
+        "enabled": true
+      }
     }
   }
 }

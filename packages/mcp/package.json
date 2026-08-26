@@ -5,12 +5,13 @@
   "type": "module",
   "description": "Casework MCP server: catalog, cases, evidence, outreach",
   "scripts": {
-    "start": "tsx src/entrypoints/stdio.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
     "api": "tsx src/entrypoints/http.ts",
+    "attribute": "tsx src/entrypoints/attribute.ts",
     "build:cases": "tsx src/entrypoints/build.ts",
-    "attribute": "tsx src/entrypoints/attribute.ts"
+    "mcp:http": "tsx src/entrypoints/mcpHttp.ts",
+    "start": "tsx src/entrypoints/stdio.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

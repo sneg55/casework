@@ -152,4 +152,13 @@ export default tseslint.config(
       'no-restricted-syntax': 'off',
     },
   },
+
+  {
+    // Build config, not application code. Vite reports a thrown Error as a config failure and
+    // stops the build, which is the behaviour the guard wants; a Result has no caller here.
+    files: ['**/vite.config.ts'],
+    rules: {
+      'no-restricted-syntax': 'off',
+    },
+  },
 )

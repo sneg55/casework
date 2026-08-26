@@ -189,11 +189,11 @@ the attribution the agent would produce, but the fan-out itself is the harness's
   `casework-sop` has to be registered with the running harness. Committing `SKILL.md` to this
   repository is not by itself enough, and registering it is part of the setup the README gives
   a judge.
-- **A model is required**, as `model.name` in FQN form. Casework routes through the
-  **TrueFoundry LLM gateway**, which keeps the model swappable and keeps the whole stack on the
-  sponsor's surfaces. The cost is that a judge needs a gateway account, so the README opens with
-  that step and states the exact model FQN the demo was recorded against. Nothing else in the
-  design depends on the choice.
+- **A model is required**, as `model.name`. A standalone harness resolves
+  `provider/model` against a provider key entered in its own settings, so a judge needs an API
+  key and no TrueFoundry account. `agent/casework.agent.json` names
+  `anthropic/claude-sonnet-5`, which is what the demo was recorded against. Nothing else in the
+  design depends on the choice, and the key never enters this repository.
 
 **Stack.** Two languages, split along the sandbox boundary, because that is where the harness
 itself splits.
@@ -216,7 +216,7 @@ itself splits.
   ├── scripts/case_document.py       the machine-readable form of a run
   ├── scripts/catalog_query.py       catalog summary, or the rows asked for
   ├── data/runs/<date>.json          one capture per run, committed
-  ├── packages/mcp/                  casework-mcp, TypeScript, stdio
+  ├── packages/mcp/                  casework-mcp, TypeScript, stdio and HTTP
   ├── packages/ui/                   React shell embedding the SDK
   ├── agent/casework.agent.json      AgentSpec: model, skills, mcp_servers, approval
   ├── skills/casework-sop/SKILL.md   registered with the harness skill store
@@ -254,7 +254,19 @@ right place; it is not a claim that mail was sent.
 
 ## 5. The MCP server
 
-`casework-mcp`, TypeScript, stdio. Tools:
+`casework-mcp`, TypeScript. One server, two doors onto the same tools, store and gate:
+
+- **stdio**, `npm run start -w @casework/mcp`. What a local MCP client launches as a child
+  process.
+- **streamable HTTP**, `npm run mcp`, serving `POST /mcp` on `CASEWORK_MCP_HOST:CASEWORK_MCP_PORT`
+  (`127.0.0.1:8792`) plus a `GET /health` liveness probe. A TrueForge harness registers remote
+  servers only, so this is the door it uses. A transport and a server are constructed per
+  request and share the process's SQLite handle: a stateless transport carries a single
+  `initialize`, so a shared one answers the first caller and fails the next. No CORS headers are
+  sent and the listener is loopback by default, because the only client is a harness process on
+  the same machine and these tools reach `outreach.send`.
+
+Tools:
 
 | Tool | Reads/writes | Notes |
 |---|---|---|

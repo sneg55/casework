@@ -11,6 +11,38 @@ Status: the probe, the MCP server, attribution, the drafts, the gate and the scr
 The agent that drives them needs a TrueForge harness you supply. See
 [`docs/SPEC.md`](docs/SPEC.md).
 
+## What the agent does, and how it uses TrueForge
+
+A steward opens the dock, says "work the queue", and the agent does one pass of the standing
+orders. It calls `cases.build` to replay the captured runs into grouped causes, `cases.attribute`
+to name the party each cause belongs to and gather the evidence for that claim, and
+`outreach.draft` to write the message from what was observed rather than from a template. Then
+it stops. Approving is the steward's move, and the agent cannot make it.
+
+The harness is what makes the stopping real rather than a promise in a prompt.
+[`agent/casework.agent.json`](agent/casework.agent.json) is a TrueForge AgentSpec, and four
+parts of it carry the design:
+
+- `model.name` is `anthropic/claude-sonnet-5`, resolved against a provider key held in the
+  harness settings. No key, no model name and no address is in this repository.
+- `skills` references `casework-sop` by name. The body is
+  [`skills/casework-sop/SKILL.md`](skills/casework-sop/SKILL.md) and the mount comes from the
+  harness skill store, so the rules the agent follows are registered, versioned and swappable
+  without touching the agent.
+- `mcp_servers` registers `casework` and preloads `cases.list` and `cases.build`, so the first
+  turn opens on the real queue instead of on the agent asking what it is looking at. The
+  harness registers remote servers only, which is why `casework-mcp` also serves streamable
+  HTTP on `:8792`.
+- `require_approval_for_tools: ["outreach.send"]` is the gate. When the agent reaches that tool
+  the harness suspends the turn and emits `tool.approval_required`; nothing runs until a
+  `user.tool_approval` item allows or denies it. Denying leaves the case `ready` with no
+  decision recorded. The gate is enforced by the harness, above the tool, so a persuaded or
+  confused agent cannot route around it.
+
+`sandbox`, `dynamic_sub_agents`, `generative_ui`, `ask_user_questions` and context compaction
+are on. The chat itself is TrueForge's own UI component mounted beside the queue, so the
+steward reads the register and the agent's reasoning on one screen.
+
 ## Why
 
 Spec validators answer "is this feed well formed". Scorecards answer "is it fresh". Alert
@@ -22,27 +54,28 @@ Run the probe against California's public GTFS feeds and the answer is not what 
 shows:
 
 ```
-  live run 2026-08-25, 1 prior run(s) on file
+  replay 2026-08-26, 2 prior run(s) on file
   checked 249   healthy 196   failing 53
-  suppressed: 7 declare a credential, 25 the catalog has already retired or not yet shipped
-  actionable failures 28
+  suppressed: 7 declare a credential, 24 the catalog has already retired or not yet shipped
+  actionable failures 29
 
-    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository     run 2/3
+    7 agencies  raw.githubusercontent.com/LACMTA/los-angeles-regiona code_host_path_removed -> repository     run 3/3
       +4 corroborating: catalog already re-points this entry
-    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host_operator  run 2/3
+    5 agencies  gtfs.calitp.org                                      content_type_mismatch  -> host_operator  run 3/3
       +5 corroborating: catalog marks this entry pre-production
       +1 corroborating: catalog already re-points this entry
-    1 agency    transitfeeds.com                                     deprecated_service     -> catalog        run 2/3
+    1 agency    transitfeeds.com                                     deprecated_service     -> catalog        run 3/3
       +6 corroborating: catalog already re-points this entry
 
-  grouped 13 failures into 3 cases; 15 individual
-  candidate causes 18, against 53 tickets a per-feed view would open
-  past the 3-day rule, so drafted: 0
+  grouped 13 failures into 3 cases; 16 individual
+  candidate causes 19, against 53 tickets a per-feed view would open
+  past the 3-day rule, so drafted: 16
 ```
 
-The 2026-08-24 and 2026-08-25 runs give the same three causes at the same sizes and the same
-249/196/53/28 counts. Both files are committed, so you can check that yourself. The counter
-reads 2/3 because it counts those two files; there is no stored streak to fake.
+The 2026-08-24 and 2026-08-25 runs give the same three causes at the same sizes. All three
+files are committed, so you can check that yourself. The counter reads 3/3 because it counts
+those three files; there is no stored streak to fake, and until the third one landed nothing
+could be drafted at all.
 
 Those seven agencies are dark because a single repository that hosts GTFS on their behalf was
 reorganised and the paths the catalog references are gone. Writing to seven city halls would be
@@ -65,7 +98,7 @@ No credentials, no API key, nothing to install. It reads the public
 writes the run to `data/runs/<date>.json`. To replay a captured run offline, fetching nothing:
 
 ```bash
-python3 scripts/probe_catalog.py --replay data/runs/2026-08-25.json
+python3 scripts/probe_catalog.py --replay data/runs/2026-08-26.json
 ```
 
 The 3-day rule counts the files in `data/runs/`, so the day counter is real history. A day
@@ -103,12 +136,15 @@ Step 2 attributes as well as groups. A case with no attribution has no party to 
 the queue row says so. Attribution reads the GitHub API and re-probes replacement feeds, so it
 is the one step that touches the network after a run is captured.
 
-The agent runs on TrueForge and needs three more things: a model FQN from the TrueFoundry
-gateway, the `casework-sop` skill registered with the harness skill store, and `casework-mcp`
-registered as an MCP server (`npm run start -w @casework/mcp`). Point
-`VITE_CASEWORK_HARNESS_URL` at the harness API root and its chat mounts in the dock beside the
-screens; leave it unset and the dock tells you what to set. See
-[`agent/README.md`](agent/README.md).
+The agent runs on TrueForge. Start the harness with `npx @truefoundry/trueforge`, which runs
+standalone on `:8790` against its own SQLite and needs no TrueFoundry account: a provider API
+key is entered in the harness itself and never reaches this repository. Then register the
+`casework-sop` skill and `casework-mcp`, which the harness reaches over HTTP on
+`http://localhost:8792/mcp` (`npm run mcp`), because it registers remote servers only. Set
+`CASEWORK_HARNESS_ORIGIN` and leave `VITE_CASEWORK_HARNESS_URL=/harness`: the dock reaches the
+harness through the Vite proxy, because a standalone harness sends no CORS headers. Leave it
+unset and the dock tells you what to set. The whole sequence, with the API calls that do the
+registering, is in [`agent/README.md`](agent/README.md).
 
 `outreach.send` is the only approval-gated tool. No transport is wired, so approving writes the
 message to `data/outbox/` and nothing leaves the machine.
