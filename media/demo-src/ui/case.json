@@ -1,0 +1,22 @@
+{
+  "$schema": "../node_modules/testreel/recording-definition.schema.json",
+  "url": "http://localhost:5273/",
+  "viewport": { "width": 1440, "height": 810 },
+  "outputFormat": "mp4",
+  "cursor": { "enabled": true, "size": 30, "color": "#c0392b", "rippleColor": "#c0392b", "rippleSize": 46, "idleHide": false, "transitionMs": 650 },
+  "steps": [
+    { "action": "wait", "ms": 3000 },
+    { "action": "click", "selector": ".waiting button:has-text('outreach.send')" },
+    { "action": "wait", "ms": 4000 },
+    { "action": "scroll", "y": 620 },
+    { "action": "wait", "ms": 4500 },
+    { "action": "hover", "selector": ".facing a[href*='github.com']" },
+    { "action": "wait", "ms": 3500 },
+    { "action": "scroll", "y": 520 },
+    { "action": "wait", "ms": 4500 },
+    { "action": "scroll", "y": 620 },
+    { "action": "wait", "ms": 3500 },
+    { "action": "scroll", "y": 700 },
+    { "action": "wait", "ms": 4500 }
+  ]
+}

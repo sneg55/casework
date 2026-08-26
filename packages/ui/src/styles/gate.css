@@ -50,6 +50,9 @@
   font-size: 13px;
   color: var(--ink-soft);
   max-width: 74ch;
+  /* The model writes in lines. Collapsing them turns a short list into a paragraph nobody
+     reads at the one moment somebody has to read it. */
+  white-space: pre-line;
 }
 
 .gate-draft {

@@ -1,7 +1,7 @@
 // The notice. Facing columns for what the catalog asks for and what is actually there, the
 // attribution with the evidence it rests on, then the message itself. When the harness has a
 // suspended outreach.send for this case, the gate goes above all of it.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ActionBar } from '../components/ActionBar'
 import { ApprovalGate } from '../components/ApprovalGate'
@@ -98,6 +98,16 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
   useEffect(() => {
     setHeld(null)
   }, [caseId])
+
+  // The harness resumes the turn only after it has taken the answer, and `outreach.send` moves
+  // the case after that. Re-read when the gate clears, or the notice behind the settled panel
+  // keeps the state it had before the approval.
+  const liveId = live?.tool_call_id ?? null
+  const previousId = useRef<string | null>(null)
+  useEffect(() => {
+    if (previousId.current !== null && liveId === null) load()
+    previousId.current = liveId
+  }, [liveId, load])
 
   if (error !== null) {
     return (

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "open",
+    "sec": 16,
+    "kind": "card",
+    "caption": "Casework: feed failures, grouped by cause and addressed to whoever can fix them",
+    "narrate": "Casework. A transit data steward gets a list of broken feeds every morning. This turns that list into a much shorter list of causes, works out who can fix each one, drafts the message, and stops for a human before anything is sent.",
+    "block": {
+      "type": "title",
+      "brand": "Casework",
+      "sub": "feed failures, grouped by cause and addressed to whoever can fix them",
+      "tag": "group  ·  attribute  ·  draft  ·  stop for a human"
+    }
+  },
+  {
+    "id": "queue",
+    "sec": 38,
+    "kind": "ui",
+    "capture": "queue",
+    "caption": "249 feeds checked. 53 failing. 19 root causes.",
+    "narrate": "A checker ran two hundred and forty nine California G T F S feeds this morning. All public, none needing a credential. Fifty three are failing. A per-feed view opens fifty three tickets. The catalog already answers twenty four of them. The twenty nine left share nineteen root causes, and three of those causes cover thirteen feeds. The banner at the top is the agent. It has stopped, it is waiting on a human, and it says so before you go looking. Two causes stopped failing overnight and closed themselves, which nobody decided, so it is not filed as a decision."
+  },
+  {
+    "id": "case",
+    "sec": 46,
+    "kind": "ui",
+    "capture": "case",
+    "caption": "Seven agencies, one repository, one party who can fix it",
+    "narrate": "Seven agencies are dark, and every one returns four oh four. A per-feed view writes to seven city halls, and every one of those emails is wrong, because none of those cities controls the thing that broke. The catalog asks for seven feeds inside one repository, serving a zip archive. What is actually there: the repository is alive, pushed at one twenty nine this morning, and the seven directories the catalog references are gone. The agent read the repository to establish that. Attribution flips from seven cities to one repository owner, at confidence three of three, after three consecutive runs. Every observation sits here with the time it was seen, and the draft is built from those rows."
+  },
+  {
+    "id": "suppressed",
+    "sec": 30,
+    "kind": "ui",
+    "capture": "suppressed",
+    "caption": "The negative control: 31 tickets that should not exist",
+    "narrate": "This is the negative control, and it is the larger half. The catalog has already re-pointed nineteen of the failing feeds, each one naming its replacement. Another five are pre-production. Seven more returned four oh one and are perfectly healthy, because the catalog records that they need an A P I key. A checker reading only the H T T P response opens thirty one tickets that should not exist. Every number opens the rows behind it."
+  },
+  {
+    "id": "gate",
+    "sec": 48,
+    "kind": "ui",
+    "capture": "gate",
+    "caption": "The agent stops before the irreversible step, not after it",
+    "narrate": "Here is the part that matters. The agent stopped inside the TrueForge harness, before the call. Nothing has been sent. The gate names the tool and the kind of recipient. It does not name an address, and there is no address anywhere in this repository to name. It is read at send time from a file that is never committed. Below that is the agent's reasoning, and the exact message that would go out, so the thing being approved is the thing on screen. Approve, and the harness takes the answer, the turn resumes, and the message is written to a local outbox. No transport is wired, so nothing left this machine. The case now reads approved, and the ledger records who approved it."
+  },
+  {
+    "id": "close",
+    "sec": 14,
+    "kind": "card",
+    "caption": "Every number comes from a committed run",
+    "narrate": "Denying is the same gate: the refusal is recorded, nothing is written, and the case stays where it was. Every number here came from a run captured this morning against live public endpoints and committed to the repository, so all of it is checkable.",
+    "block": {
+      "type": "bullets",
+      "title": "What is real, and what is not",
+      "rows": [
+        "Real: the run, the grouping, the attribution, the gate",
+        "Not wired: the transport. Approving writes a file",
+        "No contact address is in this repository, or on screen"
+      ]
+    }
+  }
+]

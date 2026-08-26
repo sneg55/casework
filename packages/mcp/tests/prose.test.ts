@@ -2,7 +2,7 @@
 // dash there as much as anywhere else this product writes.
 import { describe, expect, it } from 'vitest'
 
-import { withoutDashes } from '../src/utils/prose.js'
+import { readable, withoutDashes } from '../src/utils/prose.js'
 
 describe('withoutDashes', () => {
   it('replaces an em dash used as punctuation with a comma', () => {
@@ -24,5 +24,27 @@ describe('withoutDashes', () => {
 
   it('returns empty text untouched', () => {
     expect(withoutDashes('')).toBe('')
+  })
+})
+
+describe('readable', () => {
+  it('drops emphasis markers a chat client would have rendered', () => {
+    expect(readable('This case **is properly attributed** at `confidence 3`.')).toBe(
+      'This case is properly attributed at confidence 3.',
+    )
+  })
+
+  it('keeps the line breaks the model wrote, so a list stays a list', () => {
+    expect(readable('Checks:\n- attributed\n- past the rule')).toBe(
+      'Checks:\n- attributed\n- past the rule',
+    )
+  })
+
+  it('closes up a run of blank lines and trims the ends', () => {
+    expect(readable('\n\nfirst\n\n\n\nsecond\n\n')).toBe('first\n\nsecond')
+  })
+
+  it('still removes a dash', () => {
+    expect(readable('well-formed — factual')).toBe('well-formed, factual')
   })
 })

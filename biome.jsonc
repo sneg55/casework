@@ -11,8 +11,11 @@
   },
   "files": {
     // data/ holds captured probe runs. They are evidence, not source: never reformatted.
+    // media/demo-src is the video build: vendored node scripts whose console output is the
+    // point, held to their upstream style rather than this repository's.
     "includes": [
       "**",
+      "!media/**",
       "!**/dist/**",
       "!**/build/**",
       "!**/coverage/**",
