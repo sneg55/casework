@@ -7,7 +7,7 @@
   "scripts": {
     "capture:ui": "for f in ui/*.json; do npx testreel \"$f\" --format mp4 || exit 1; done",
     "cards": "node render-cards.mjs",
-    "tts": "node --env-file=.env tts.mjs",
+    "tts": "node tts.mjs",
     "build": "node build-video.mjs",
     "tts:local": "node tts-local.mjs"
   },

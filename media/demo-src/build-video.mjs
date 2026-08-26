@@ -76,7 +76,10 @@ scenes.forEach((s, i) => {
   )
   concatLabels.push(`[v${i}][a${i}]`)
 })
-filters.push(`${concatLabels.join('')}concat=n=${scenes.length}:v=1:a=1[v][a]`)
+filters.push(`${concatLabels.join('')}concat=n=${scenes.length}:v=1:a=1[v][araw]`)
+// Broadcast-ish loudness. Raw TTS lands around -36 dB mean, which is unwatchable on a
+// laptop speaker, and the silence padding between scenes drags the average down further.
+filters.push('[araw]loudnorm=I=-16:TP=-1.5:LRA=11[a]')
 
 const args = [
   '-y', '-loglevel', 'error',
