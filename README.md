@@ -177,8 +177,10 @@ does not touch GTFS-Realtime or WZDx, and it does not edit anybody's data.
 Every pull request in this repository is reviewed by
 [Qodo](https://github.com/marketplace/qodo-merge-pro), and the review is public.
 
-[**PR #2**](https://github.com/sneg55/casework/pull/2) is the fullest example. Qodo returned
-three correctness bugs, all of them real, all of them mine:
+Two pull requests are worth reading in full.
+
+[**PR #2**](https://github.com/sneg55/casework/pull/2) is where it caught what the product
+says. Qodo returned three correctness bugs, all of them real, all of them mine:
 
 - **Transport evidence misreported.** `investigateTransport` and `investigateContent` re-probe
   through the same code, so their evidence carries the same `http` kind. The case page could
@@ -200,6 +202,35 @@ and a test fails the build if the two ever disagree again.
 Two of the repository's own tests had been asserting the buggy strings and were corrected
 alongside the code. One passed on a substring while the sentence it covered was nonsense, which
 is how the second bug survived to review in the first place.
+
+[**PR #5**](https://github.com/sneg55/casework/pull/5) is the one where the review caught
+something a judge could have hit. Qodo returned two bugs and two rule violations, then a fifth
+on the follow-up pass:
+
+- **Unauthenticated MCP network exposure**, its only High. The new HTTP door bound every
+  interface and sent `Access-Control-Allow-Origin: *`, in front of `outreach.decide` and
+  `outreach.send`. Fixed, but not the way Qodo proposed: it suggested a bearer token or an
+  origin allowlist, and the narrower answer was that nothing in `packages/ui` addresses that
+  port at all, so the CORS headers went away entirely and the listener took a bind host that
+  defaults to loopback. Checked both ways before the fix was called done: `127.0.0.1:8792`
+  answers, the machine's LAN address is refused.
+- **Captured run file overwritten.** The capture workflow committed `data/runs/2026-08-26.json`
+  at 07:10 and a local capture at 09:59 replaced it. That is a rewrite of a run, not a second
+  run, and this repository's rules forbid it. The committed file is restored byte for byte.
+  The numbers that follow from it moved in the product's favour: the third run is what makes
+  the 3-day rule fire, so the README block went from `drafted: 0` to `drafted: 16`.
+- **HTTP transport undocumented in the spec**, which is the same class of violation the
+  re-review raised on PR #2 and the reason the rule exists. Section 5 now documents both doors.
+- **Production harness proxy missing.** `/harness` is a Vite dev-server rule and a build baked
+  it in anyway, so a built dock would have called itself. The build now refuses.
+- **Documented env file ignored**, raised on the follow-up pass against the fixes. Moving the
+  env read to the repository root left `.env.example` telling a judge to write
+  `packages/ui/.env.local`, which nothing loads. Confirmed by building with a marker value in
+  that path and grepping the bundle for it.
+
+Four of the five are marked resolved on the final review. The fifth, the captured run, is a
+stale marker: the file is byte-identical to `main` and does not appear in the pull request's
+diff at all.
 
 Qodo runs automatically when a pull request is opened. It is also invoked with `/review` on a
 pull request that predates the app.
