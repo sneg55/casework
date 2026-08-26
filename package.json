@@ -13,6 +13,7 @@
     "capture": "python3 scripts/probe_catalog.py --jurisdiction California",
     "replay": "python3 scripts/probe_catalog.py --replay \"$(ls data/runs/*.json | tail -1)\"",
     "queue": "npm run build:cases -w @casework/mcp && npm run attribute -w @casework/mcp",
+    "demo:reset": "npm run reset -w @casework/mcp",
     "api": "npm run api -w @casework/mcp",
     "ui": "npm run dev -w @casework/ui",
     "lint": "biome ci . && eslint .",

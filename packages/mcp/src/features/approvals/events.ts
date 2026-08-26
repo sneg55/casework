@@ -2,6 +2,7 @@
 //
 // A gate is open when a `tool.approval_required` names a tool call that no later `tool.response`
 // has answered. The harness exposes no "pending" list, so this derives one.
+import { withoutDashes } from '../../utils/prose.js'
 import type { PendingApproval } from './types.js'
 
 interface ToolCall {
@@ -77,7 +78,7 @@ function describe(
     tool_name: source?.call.tool_info?.name ?? source?.call.function?.name ?? 'unknown',
     arguments: args,
     case_id: caseIdOf(args),
-    said: source?.said ?? '',
+    said: withoutDashes(source?.said ?? ''),
     requested_at: source?.at ?? event.created_at ?? '',
   }
 }

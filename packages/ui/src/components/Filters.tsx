@@ -1,4 +1,4 @@
-// The register's control line. Four state segments and one text box: a steward opens this
+// The register's control line. Five state segments and one text box: a steward opens this
 // queue asking "what is ready" and "what happened to that github case", and nothing else.
 import type { QueueCase } from '../lib/api'
 import { inStateGroup } from '../lib/words'
@@ -13,6 +13,7 @@ const GROUPS = [
   { key: 'watching', label: 'Watching' },
   { key: 'ready', label: 'Ready' },
   { key: 'decided', label: 'Decided' },
+  { key: 'closed', label: 'Closed' },
 ] as const
 
 export const EMPTY_FILTER: Filter = { group: 'all', query: '' }

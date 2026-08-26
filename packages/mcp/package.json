@@ -9,6 +9,7 @@
     "attribute": "tsx src/entrypoints/attribute.ts",
     "build:cases": "tsx src/entrypoints/build.ts",
     "mcp:http": "tsx src/entrypoints/mcpHttp.ts",
+    "reset": "tsx src/entrypoints/reset.ts",
     "start": "tsx src/entrypoints/stdio.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

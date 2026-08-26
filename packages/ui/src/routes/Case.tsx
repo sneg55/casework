@@ -8,7 +8,7 @@ import { ApprovalGate } from '../components/ApprovalGate'
 import { Attribution } from '../components/Attribution'
 import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
-import { api, type CaseDetail } from '../lib/api'
+import { api, type CaseDetail, type PendingApproval } from '../lib/api'
 import { gateFor, useApprovals } from '../lib/approvals'
 import { count, verb, words } from '../lib/words'
 
@@ -87,6 +87,18 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
 
   useEffect(load, [load])
 
+  // The gate leaves the poll the moment the harness takes the answer, so the panel that reports
+  // what happened would unmount about four seconds after it appeared. Hold the answered call
+  // until the steward leaves the case.
+  const [held, setHeld] = useState<PendingApproval | null>(null)
+  const live = detail === null ? null : gateFor(approvals, detail.case_id)
+  useEffect(() => {
+    setHeld((previous) => live ?? previous)
+  }, [live])
+  useEffect(() => {
+    setHeld(null)
+  }, [caseId])
+
   if (error !== null) {
     return (
       <>
@@ -112,7 +124,7 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
     )
   }
 
-  const gate = gateFor(approvals, detail.case_id)
+  const gate = live ?? held
 
   return (
     <>
@@ -177,8 +189,9 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
           ))
         )}
         <span>
-          This screen cannot send. It can answer the gate the harness is holding, which is a
-          different thing: with no harness running there is no suspended call to approve.
+          This screen cannot send. It can only answer a call the harness has already suspended,
+          which is a different thing: if the harness is holding nothing, there is nothing here to
+          approve.
         </span>
       </p>
     </>

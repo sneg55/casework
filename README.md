@@ -89,7 +89,8 @@ catalog records that they need an API key. A checker that reads only the HTTP re
 tickets that should not exist.
 
 Those counts move with the run, which is why they name one. `docs/SPEC.md` quotes 25, 20 and 32
-because it was measured against `data/runs/2026-08-24.json`, and both are checkable.
+in the same three places because it was measured against `data/runs/2026-08-24.json`. Both files
+are committed, so both are checkable.
 
 ## Try it
 

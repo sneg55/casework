@@ -10,6 +10,15 @@ export function isTerminal(state: string): boolean {
 }
 
 /**
+ * The causes the run's actionable failures share. A resolved case stopped failing, so its feeds
+ * are not counted in `actionable` and its cause is not one of them; leaving it in overstates
+ * the collapse the headline claims. Every other state still describes a cause failing now.
+ */
+export function liveCases(cases: QueueCase[]): QueueCase[] {
+  return cases.filter((row) => row.state !== 'resolved')
+}
+
+/**
  * Section 10: no draft before three runs, and no draft against an unattributed case. Both are
  * returned, because clearing the run counter on a case nobody attributed only reveals the
  * second refusal, and a reader who was shown one blocker reads it as the only one.

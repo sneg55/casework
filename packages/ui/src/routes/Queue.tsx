@@ -11,7 +11,7 @@ import { Totals } from '../components/Totals'
 import { WaitingBanner } from '../components/WaitingBanner'
 import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
 import { useApprovals } from '../lib/approvals'
-import { whyNothingIsReady } from '../lib/blocking'
+import { liveCases, whyNothingIsReady } from '../lib/blocking'
 import { count } from '../lib/words'
 
 // The one reason that says the feed is healthy rather than suppressed. It comes from
@@ -62,7 +62,8 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const run = data.run
   const isGrouped = (row: QueueCase) => row.cause_kind !== 'individual'
   const feeds = (rows: QueueCase[]) => rows.reduce((sum, row) => sum + row.agency_count, 0)
-  const allGrouped = data.cases.filter(isGrouped)
+  const live = liveCases(data.cases)
+  const allGrouped = live.filter(isGrouped)
   const shown = data.cases.filter((row) => matches(row, filter))
   const grouped = shown.filter(isGrouped)
   const singles = shown.filter((row) => !isGrouped(row))
@@ -75,11 +76,11 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
         <div className="figure">
           {run.failing}
           <span className="to overprint">→</span>
-          {data.cases.length}
+          {live.length}
         </div>
         <p>
           A per-feed view opens {run.failing} tickets on this run. The catalog already answers{' '}
-          {run.suppressed_catalog} of them. The {run.actionable} left share {data.cases.length} root
+          {run.suppressed_catalog} of them. The {run.actionable} left share {live.length} root
           causes, and {allGrouped.length} of those causes account for {feeds(allGrouped)} feeds
           between them.
         </p>
