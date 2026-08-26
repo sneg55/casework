@@ -28,6 +28,29 @@ function harnessServer(baseUrl: string, token: string | undefined) {
 
 const SERVER = HARNESS_URL === null ? null : harnessServer(HARNESS_URL, HARNESS_TOKEN)
 
+/**
+ * The staged request, wherever the chat is unusable. It used to render only when no harness was
+ * configured, which is not the case that happens: the chat mounts against a live harness and
+ * throws. Then the request the steward asked for was dropped and there was nothing to copy.
+ */
+function Staged({ staged }: { staged: string | null }) {
+  if (staged === null) return null
+  return (
+    <>
+      <p className="staged-label">What to ask the agent:</p>
+      <pre className="staged">{staged}</pre>
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard.writeText(staged)
+        }}
+      >
+        Copy the request
+      </button>
+    </>
+  )
+}
+
 function Unconfigured({ staged }: { staged: string | null }) {
   return (
     <div className="dock-empty">
@@ -41,20 +64,7 @@ function Unconfigured({ staged }: { staged: string | null }) {
         Approval is a gated <code>outreach.send</code> call inside the agent, so this screen cannot
         stand in for it. Nothing here sends.
       </p>
-      {staged === null ? null : (
-        <>
-          <p className="staged-label">What to ask the agent:</p>
-          <pre className="staged">{staged}</pre>
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(staged)
-            }}
-          >
-            Copy the request
-          </button>
-        </>
-      )}
+      <Staged staged={staged} />
     </div>
   )
 }
@@ -81,7 +91,7 @@ export function AgentDock({ open, onToggle }: { open: boolean; onToggle: () => v
       {!open ? null : SERVER === null ? (
         <Unconfigured staged={staged} />
       ) : (
-        <ChatBoundary>
+        <ChatBoundary fallbackExtra={<Staged staged={staged} />}>
           <Suspense fallback={<p className="dock-empty">Loading the chat shell…</p>}>
             <Chat server={SERVER} layout="dock" />
           </Suspense>

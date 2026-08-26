@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { RUNS_BEFORE_DRAFT } from '../../constants/enums.js'
 import { detectionsFor, latestRunDate } from '../../services/runFiles.js'
 import type { Store } from '../../services/store.js'
+import { count, verb } from '../../utils/plural.js'
 import { type CaseView, caseView } from '../cases/view.js'
 
 export interface Draft {
@@ -103,7 +104,7 @@ function hostBody(store: Store, view: CaseView, observed: string[]): string {
 
 function catalogBody(view: CaseView, observed: string[]): string {
   return [
-    `${view.locator} is retired. Most of its entries in the catalog are already marked deprecated with a replacement recorded, which is the correct outcome and is why this is not addressed to any agency. ${view.agency_count} entry or entries still point at it with no replacement recorded.`,
+    `${view.locator} is retired. Most of its entries in the catalog are already marked deprecated with a replacement recorded, which is the correct outcome and is why this is not addressed to any agency. ${count(view.agency_count, 'entry', 'entries')} still ${verb(view.agency_count, 'point')} at it with no replacement recorded.`,
     '',
     'Observed:',
     ...observed,

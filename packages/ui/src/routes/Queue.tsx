@@ -12,6 +12,7 @@ import { WaitingBanner } from '../components/WaitingBanner'
 import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
 import { useApprovals } from '../lib/approvals'
 import { whyNothingIsReady } from '../lib/blocking'
+import { count } from '../lib/words'
 
 // The one reason that says the feed is healthy rather than suppressed. It comes from
 // scripts/cases.py, which is where the wording is defined.
@@ -115,7 +116,7 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
         <Register
           rows={grouped}
           onOpen={onOpen}
-          caption={`${String(grouped.length)} grouped causes covering ${String(feeds(grouped))} feeds`}
+          caption={`${count(grouped.length, 'grouped cause')} covering ${count(feeds(grouped), 'feed')}`}
         />
       )}
 

@@ -335,7 +335,7 @@ Evidence    case_id, kind, observation, source_url, observed_at
 
 Draft       case_id, subject, body, recipient_kind, generated_at
 
-Decision    case_id, actor, action(approve|edit|reject|snooze), at, note
+Decision    case_id, actor, action(approve|deny|edit|reject|snooze), at, note
 ```
 
 A case has two names. `case_id` is `sha1(cause_key)[:12]`, which the API, the agent and the URL

@@ -9,6 +9,12 @@ import { api, type CaseDetail, type PendingApproval } from '../lib/api'
 
 type Answering = 'idle' | 'allow' | 'deny' | 'done' | 'failed'
 
+/** The API's message is concatenated after a full stop, so it starts one. */
+function sentence(message: string | null): string {
+  if (message === null || message === '') return ''
+  return `${message.charAt(0).toUpperCase()}${message.slice(1)} `
+}
+
 function Recipient({ detail }: { detail: CaseDetail }) {
   return (
     <dl className="gate-what">
@@ -29,13 +35,17 @@ export function ApprovalGate({
   gate,
   detail,
   onAnswered,
+  onReload,
 }: {
   gate: PendingApproval
   detail: CaseDetail
   onAnswered: () => void
+  /** Re-reads the case. The draft-moved refusal is only actionable if this is offered. */
+  onReload: () => void
 }) {
   const [state, setState] = useState<Answering>('idle')
   const [failure, setFailure] = useState<string | null>(null)
+  const [answered, setAnswered] = useState<'allow' | 'deny' | null>(null)
 
   const answer = (status: 'allow' | 'deny') => {
     setState(status)
@@ -52,6 +62,7 @@ export function ApprovalGate({
           setState('failed')
           return
         }
+        setAnswered(status)
         setState('done')
         onAnswered()
       })
@@ -64,10 +75,11 @@ export function ApprovalGate({
   if (state === 'done') {
     return (
       <div className="gate settled">
-        <h3>Answered</h3>
+        <h3>{answered === 'allow' ? 'Approved' : 'Denied'}</h3>
         <p>
-          The harness has the decision and the turn has resumed. What happened next is on the case
-          below, and in <code>data/outbox/</code> if it was approved.
+          {answered === 'allow'
+            ? 'The harness has the approval, the turn resumed, and the message was written to data/outbox. The case below records who approved it.'
+            : 'The harness has the refusal and the turn resumed. Nothing was sent. The refusal is recorded against the case below, which stays where it was.'}
         </p>
       </div>
     )
@@ -117,13 +129,25 @@ export function ApprovalGate({
           {state === 'deny' ? 'Denying…' : 'Deny'}
         </button>
         <span className="gate-note">
-          Denying records no decision on the case and leaves it where it is.
+          Denying records the refusal against the case and leaves the case where it is.
         </span>
       </div>
 
       {state === 'failed' ? (
         <p className="status">
-          The decision did not reach the harness, so the call is still suspended. {failure}
+          The decision did not reach the harness, so the call is still suspended.{' '}
+          {sentence(failure)}
+          <button
+            type="button"
+            className="retry"
+            onClick={() => {
+              setFailure(null)
+              setState('idle')
+              onReload()
+            }}
+          >
+            Re-read this case
+          </button>
         </p>
       ) : null}
     </div>

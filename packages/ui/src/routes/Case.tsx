@@ -10,7 +10,7 @@ import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
 import { api, type CaseDetail } from '../lib/api'
 import { gateFor, useApprovals } from '../lib/approvals'
-import { words } from '../lib/words'
+import { count, verb, words } from '../lib/words'
 
 function Back({ onBack }: { onBack: () => void }) {
   return (
@@ -29,14 +29,17 @@ function Facing({ detail }: { detail: CaseDetail }) {
         <h3>What the catalog asks for</h3>
         <dl>
           <dt>Entries</dt>
-          <dd>{members.length} feeds point here and are expected to serve a zip archive</dd>
+          <dd>
+            {count(members.length, 'feed')} {verb(members.length, 'point')} here and{' '}
+            {verb(members.length, 'are', 'is')} expected to serve a zip archive
+          </dd>
           <dt>Cause key</dt>
           <dd className="mono">{detail.cause_key}</dd>
           <dt>Already answered</dt>
           <dd>
             {corroborating.length === 0
               ? 'no sibling entries'
-              : `${corroborating.length} siblings the catalog has retired or re-pointed`}
+              : `${count(corroborating.length, 'sibling')} the catalog has retired or re-pointed`}
           </dd>
         </dl>
       </section>
@@ -118,7 +121,13 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
       {/* Keyed on the call: a second gate on the same case must arrive on a fresh component,
           not inherit the first one's answered state. */}
       {gate === null ? null : (
-        <ApprovalGate key={gate.tool_call_id} gate={gate} detail={detail} onAnswered={load} />
+        <ApprovalGate
+          key={gate.tool_call_id}
+          gate={gate}
+          detail={detail}
+          onAnswered={load}
+          onReload={load}
+        />
       )}
 
       <div className="notice-head">

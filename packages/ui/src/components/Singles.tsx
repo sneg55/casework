@@ -24,8 +24,13 @@ export function Singles({ rows, open }: { rows: QueueCase[]; open: boolean }) {
               </span>
               <span className="state">
                 <Lamp state={row.state} />
-                {row.consecutive_runs}
-                <span className="of">/3</span>
+                {/* The lamp is a colour. Nineteen of twenty-two cases are in this list, and
+                    which state they are in is what the tabs above filter on, so it is named. */}
+                <span className="state-name">{row.state}</span>
+                <span className="runs">
+                  {row.consecutive_runs}
+                  <span className="of">/3</span>
+                </span>
               </span>
             </a>
           </li>

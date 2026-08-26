@@ -31,7 +31,7 @@ export const CASE_STATES = [
   'resolved',
 ] as const
 
-export const DECISION_ACTIONS = ['approve', 'edit', 'reject', 'snooze'] as const
+export const DECISION_ACTIONS = ['approve', 'deny', 'edit', 'reject', 'snooze'] as const
 
 export const EVIDENCE_KINDS = ['http', 'catalog', 'repo', 'redirect', 'tls'] as const
 

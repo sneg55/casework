@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS drafts (
 CREATE TABLE IF NOT EXISTS decisions (
   case_id TEXT NOT NULL REFERENCES cases(case_id) ON DELETE CASCADE,
   actor   TEXT NOT NULL,
-  action  TEXT NOT NULL CHECK (action IN ('approve','edit','reject','snooze')),
+  action  TEXT NOT NULL CHECK (action IN ('approve','deny','edit','reject','snooze')),
   at      TEXT NOT NULL,
   note    TEXT
 );

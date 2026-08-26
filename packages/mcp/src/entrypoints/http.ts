@@ -9,7 +9,7 @@ import { pending, relay } from '../features/approvals/harness.js'
 import { caseView, queueRow } from '../features/cases/view.js'
 import { isBucket, ledger } from '../features/evidence/ledger.js'
 import { draftFor, latestDraft, reviseDraft } from '../features/outreach/draft.js'
-import { decide } from '../features/outreach/send.js'
+import { decide, recordDenial } from '../features/outreach/send.js'
 import { latestRunDate, runDates } from '../services/runFiles.js'
 import { openStore, type Store } from '../services/store.js'
 import { env } from '../utils/env.js'
@@ -205,6 +205,16 @@ async function decideApproval(req: IncomingMessage, res: ServerResponse): Promis
     return json(res, 200, { relayed: status })
   } catch (error: unknown) {
     return json(res, 502, { error: String(error) })
+  } finally {
+    // After the relay, and outside its catch. The harness has already taken the answer, so a
+    // failure to write the local record must not be reported as a failure to deny.
+    if (status === 'deny' && gate.case_id !== null) {
+      try {
+        recordDenial(store, gate.case_id, 'analyst', input['reason'])
+      } catch (error: unknown) {
+        process.stderr.write(`could not record the denial: ${String(error)}\n`)
+      }
+    }
   }
 }
 

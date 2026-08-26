@@ -5,6 +5,7 @@ import { MAX_CONFIDENCE, PARTY_FOR_CAUSE, type PartyKind } from '../../constants
 import { detectionsFor, latestRunDate } from '../../services/runFiles.js'
 import { reprobeFeeds } from '../../services/sandbox.js'
 import type { Store } from '../../services/store.js'
+import { count, verb } from '../../utils/plural.js'
 import { type CaseView, caseView } from '../cases/view.js'
 import { resolveRedirect } from './redirectResolve.js'
 import { inspectRepo, splitRawPath } from './repoInspect.js'
@@ -46,7 +47,7 @@ async function investigateRepo(
     ? `${owner}/${repo} does not exist or is not public`
     : facts.archived
       ? `${owner}/${repo} is archived, so nobody is maintaining the paths`
-      : `${owner}/${repo} is alive, pushed ${facts.pushed_at ?? 'unknown'}, and ${facts.paths_missing.length} of the ${dirs.length} directories the catalog references are gone`
+      : `${owner}/${repo} is alive, pushed ${facts.pushed_at ?? 'unknown'}, and ${String(facts.paths_missing.length)} of the ${count(dirs.length, 'directory', 'directories')} the catalog references ${verb(facts.paths_missing.length, 'are', 'is')} gone`
   return { rows: [{ kind: 'repo', observation: facts, source_url: facts.html_url }], finding }
 }
 
@@ -71,7 +72,7 @@ async function investigateRetired(
   }
   return {
     rows,
-    finding: `${healthy} of ${siblings.length} sampled siblings already point at a replacement that serves, and ${view.agency_count} entry or entries on this host still do not`,
+    finding: `${healthy} of ${siblings.length} sampled siblings already point at a replacement that serves, and ${count(view.agency_count, 'entry', 'entries')} on this host still ${verb(view.agency_count, 'do', 'does')} not`,
   }
 }
 
