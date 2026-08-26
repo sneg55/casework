@@ -46,8 +46,9 @@ The tooling that exists stops one step short of that job:
   from someone outside the operator entirely.
 
 So the per-feed view an analyst works from produces the wrong number of tickets addressed to
-the wrong parties. Measured on the live public catalog this morning, across the 249 California
-GTFS feeds that declare no credential requirement:
+the wrong parties. Measured on the live public catalog on 2026-08-24 and committed as
+`data/runs/2026-08-24.json`, across the 249 California GTFS feeds that declare no credential
+requirement:
 
 | | |
 |---|---|
@@ -335,7 +336,7 @@ Evidence    case_id, kind, observation, source_url, observed_at
 
 Draft       case_id, subject, body, recipient_kind, generated_at
 
-Decision    case_id, actor, action(approve|edit|reject|snooze), at, note
+Decision    case_id, actor, action(approve|deny|edit|reject|snooze), at, note
 ```
 
 A case has two names. `case_id` is `sha1(cause_key)[:12]`, which the API, the agent and the URL
@@ -585,12 +586,17 @@ here rather than left to the week:
   `VITE_CASEWORK_HARNESS_URL`, and it is loaded lazily because it carries the assistant-ui
   runtime and has nothing to talk to until a harness exists. With the variable unset the dock
   renders one panel saying so and naming the variable. It never renders a chat that is not
-  connected to anything, and the OpenUI case summary and approval prompt are the harness's to
-  draw once it is.
-- **The action bar in the case route dispatches to the dock**, which is where the harness
-  raises its approval prompt. One path to `outreach.send`, not two. The read API has no send
-  route at all: it answers `405` and says where approval happens, so a UI cannot POST its way
-  past the gate and make it decorative.
+  connected to anything.
+- **The gate is drawn by this app, not by the dock.** `GET /api/approvals` derives the calls the
+  harness has suspended from its session event stream, and the case route puts that above
+  everything else on the notice: the tool, the recipient kind, the message as drafted, and two
+  buttons. The register carries a banner naming the same calls, so nobody opens twenty cases
+  looking for the one that stopped. Approving is a `user.tool_approval` item posted back to the
+  harness, the same item the harness's own chat posts, which is why this cannot become a second
+  path to `outreach.send`: the suspended call belongs to the harness and with no harness running
+  there is nothing to approve. The read API still has no send route.
+- **The action bar asks the agent to send**, which is what raises the gate. One path to
+  `outreach.send`, not two, and the button says so rather than reading as the approval itself.
 - Approve is rendered disabled with the reason next to it: the run count, the missing
   attribution, the missing channel or the missing draft, whichever is blocking. Drafting is
   disabled on the same first two reasons, because section 10 says a cause under three runs
@@ -599,8 +605,10 @@ here rather than left to the week:
 **Queue.** Cases ranked by actionable agency count. Each row: docket, cause kind, host or
 repository, agency count, corroborating count, responsible party, confidence, day counter,
 state. The docket is the row's link, so a case can be opened in a tab and pasted into a ticket.
-Above the register, four state filters (all, watching, ready, decided) and a text find over
-docket, cause, host and party.
+Above the register, five state filters (all, watching, ready, decided, closed) and a text find
+over docket, cause, host and party. `resolved` sits under closed rather than decided: the store
+sets it when a cause stops appearing in a run, and filing that under decided credits a steward
+with a call nobody made.
 
 Only grouped causes are in the register. Single-feed failures are apparatus: one collapsed
 block below it, opened by a filter that matches one. Fifteen rows carrying one agency and no
@@ -636,25 +644,30 @@ so the strip cannot drift from the rows it claims to summarise.
 
 ## 12. Demo
 
-Three minutes, four beats, one fixture, no staging. Counts are restated from the run captured
-on the day, not from this document.
+Three minutes, four beats, one fixture, no staging. The counts below are the 2026-08-26
+capture; on the day, restate whatever that morning's run says rather than this document. The
+table in section 1 is the 08-24 run and reads 25, 28 and 18 where this reads 24, 29 and 19.
 
-1. **The queue.** 249 checked, 196 healthy, 53 failing, 25 of those already answered by the
-   catalog, 28 actionable, **18 candidate causes against the 53 tickets a per-feed view opens**.
-   State the collapse.
+1. **The queue.** 249 checked, 196 healthy, 53 failing, 24 of those already answered by the
+   catalog, 29 actionable, **19 candidate causes against the 53 tickets a per-feed view opens**.
+   State the collapse. The register also carries the two states nobody chose: three causes at
+   run 1 of 3 that appeared today, and two that stopped failing and closed themselves.
 2. **Open the LACMTA case.** Seven agencies, all 404, plus four siblings the catalog has
    already re-pointed. The repository is alive and was pushed the day before. The directories
    the catalog references are not there. Attribution flips from seven cities to one repository
    owner. This is the beat the submission rests on.
 3. **The suppressed block.** Seven feeds returned 401 and are healthy because the catalog says
-   they need a key; 20 more are retired with a replacement already named, and five are marked
-   pre-production. A naive checker opens 32 tickets that should not exist. This is the negative
+   they need a key; 19 more are re-pointed with a replacement already named, and five are marked
+   pre-production. A naive checker opens 31 tickets that should not exist. This is the negative
    control, and it is the larger half of the number the dashboard shows.
-4. **Approve one message.** The gate holds, the trace records who approved what, and the
-   message lands in the outbox rather than in anybody's inbox. Say so out loud.
+4. **Approve one message.** All three grouped causes reached run 3 of 3 on the 08-26 capture,
+   so the drafting refusal clears on a real streak rather than a seeded one. The gate holds, the
+   trace records who approved what, and the message lands in the outbox rather than in anybody's
+   inbox. Say so out loud. Denying is the same gate and is worth showing: the refusal is recorded
+   against the case, nothing is written, and the case stays where it was.
 
-**Negative controls, all real, none planted:** the 15 singletons that must not group, the 7
-credential-suppressed feeds, the 25 catalog-suppressed ones, and the 196 healthy feeds that
+**Negative controls, all real, none planted:** the 16 singletons that must not group, the 7
+credential-suppressed feeds, the 24 catalog-suppressed ones, and the 196 healthy feeds that
 produce nothing at all.
 
 **Fallback.** The probe output is captured as JSON per run. If an upstream host is slow or
@@ -671,10 +684,13 @@ agencies. The 15 singletons across 15 hosts. The 7 credential-suppressed feeds, 
 them. The 20 retired entries that each already name a replacement. `gtfs.calitp.org` returning
 `text/html` under a `.zip` URL for five production entries, at HTTP 206.
 
-**Cross-run stability, now from two committed files.** The 2026-08-24 and 2026-08-25 runs give
-the same 249/196/53/28 counts and the same three causes at 7, 5 and 1 members. A date holds one
-file, so this is checkable from the repository rather than asserted, and the counter reads
-`2/3` off the files rather than off a stored number.
+**Cross-run stability, now from three committed files.** All three runs give the same
+249/196/53 counts and the same three grouped causes at 7, 5 and 1 members. The split below that
+moved once: 08-24 and 08-25 read 25 answered by the catalog and 28 actionable, and 08-26 reads
+24 and 29, because both North County Transit District entries recovered while Ridgecrest Transit
+timed out and Gold Coast Transit began returning 404. A date holds one file, so this is checkable
+from the repository rather than asserted, and the counter reads `3/3` off the files rather than
+off a stored number.
 
 **Read from the public GitHub API on 2026-08-24, not from the run.** The LACMTA repository being
 public, unarchived, pushed 2026-08-23, and containing three agency directories where the catalog
@@ -695,10 +711,10 @@ a skill store, and the OpenUI component vocabulary in section 11.
   count.
 - **Grouping is a heuristic.** The singletons show it is not over-merging on this data. That is
   evidence, not proof.
-- **The 3-day rule has not fired yet.** On the committed runs every cause sits at run 2 of 3
-  and nothing is drafted. The counter is tested against seeded history, not against a real
-  streak, until the 08-26 capture lands. The refusals in front of both `outreach.draft` and
-  `outreach.send` are tested; the streak that clears them is not yet a real one.
+- **The 3-day rule fired on 2026-08-26**, so this is no longer an open item. The 08-26 capture
+  is the third file, and all three grouped causes read 3 of 3 and moved to `ready` off the run
+  files rather than off seeded history. The refusals in front of `outreach.draft` and
+  `outreach.send` and the streak that clears them are now both exercised on real captures.
 - **`confidence` is counted, not calibrated.** The three points are defined in section 6 and are
   reproducible, but nobody has checked that a 3 is right more often than a 2.
 - **The repository component of the cause key is untested on real conflicts.** All 12 California

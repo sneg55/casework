@@ -7,6 +7,7 @@ import {
   blockingReasons,
   draftBlockedReasons,
   isTerminal,
+  liveCases,
   whyNothingIsReady,
 } from '../src/lib/blocking'
 
@@ -129,5 +130,22 @@ describe('why the ready tab is empty', () => {
 
   it('falls back to the generic message when no rule explains the emptiness', () => {
     expect(whyNothingIsReady([queueCase({ runs_needed: 0, confidence: 3 })])).toBeNull()
+  })
+})
+
+describe('liveCases', () => {
+  it('drops a case that stopped failing, because the headline counts what the run still shows', () => {
+    const rows = [
+      queueCase({ docket: 'CW-0001', state: 'ready' }),
+      queueCase({ docket: 'CW-0002', state: 'watching' }),
+      queueCase({ docket: 'CW-0003', state: 'resolved' }),
+      queueCase({ docket: 'CW-0004', state: 'resolved' }),
+    ]
+    expect(liveCases(rows).map((row) => row.docket)).toEqual(['CW-0001', 'CW-0002'])
+  })
+
+  it('keeps a case somebody decided, because its cause is still failing', () => {
+    const rows = ['approved', 'rejected', 'snoozed'].map((state) => queueCase({ state }))
+    expect(liveCases(rows)).toHaveLength(3)
   })
 })

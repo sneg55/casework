@@ -1,14 +1,16 @@
 // The notice. Facing columns for what the catalog asks for and what is actually there, the
-// attribution with the evidence it rests on, then the message itself. Approve is not a button
-// this app owns: the gate lives in the agent, and the reason it is closed is stated.
-import { useCallback, useEffect, useState } from 'react'
+// attribution with the evidence it rests on, then the message itself. When the harness has a
+// suspended outreach.send for this case, the gate goes above all of it.
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ActionBar } from '../components/ActionBar'
+import { ApprovalGate } from '../components/ApprovalGate'
 import { Attribution } from '../components/Attribution'
 import { Evidence } from '../components/Evidence'
 import { Lamp } from '../components/Lamp'
-import { api, type CaseDetail } from '../lib/api'
-import { words } from '../lib/words'
+import { api, type CaseDetail, type PendingApproval } from '../lib/api'
+import { gateFor, useApprovals } from '../lib/approvals'
+import { count, verb, words } from '../lib/words'
 
 function Back({ onBack }: { onBack: () => void }) {
   return (
@@ -27,14 +29,17 @@ function Facing({ detail }: { detail: CaseDetail }) {
         <h3>What the catalog asks for</h3>
         <dl>
           <dt>Entries</dt>
-          <dd>{members.length} feeds point here and are expected to serve a zip archive</dd>
+          <dd>
+            {count(members.length, 'feed')} {verb(members.length, 'point')} here and{' '}
+            {verb(members.length, 'are', 'is')} expected to serve a zip archive
+          </dd>
           <dt>Cause key</dt>
           <dd className="mono">{detail.cause_key}</dd>
           <dt>Already answered</dt>
           <dd>
             {corroborating.length === 0
               ? 'no sibling entries'
-              : `${corroborating.length} siblings the catalog has retired or re-pointed`}
+              : `${count(corroborating.length, 'sibling')} the catalog has retired or re-pointed`}
           </dd>
         </dl>
       </section>
@@ -66,6 +71,7 @@ function Facing({ detail }: { detail: CaseDetail }) {
 export function Case({ caseId, onBack }: { caseId: string; onBack: () => void }) {
   const [detail, setDetail] = useState<CaseDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const approvals = useApprovals()
 
   const load = useCallback(() => {
     api
@@ -80,6 +86,28 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
   }, [caseId])
 
   useEffect(load, [load])
+
+  // The gate leaves the poll the moment the harness takes the answer, so the panel that reports
+  // what happened would unmount about four seconds after it appeared. Hold the answered call
+  // until the steward leaves the case.
+  const [held, setHeld] = useState<PendingApproval | null>(null)
+  const live = detail === null ? null : gateFor(approvals, detail.case_id)
+  useEffect(() => {
+    setHeld((previous) => live ?? previous)
+  }, [live])
+  useEffect(() => {
+    setHeld(null)
+  }, [caseId])
+
+  // The harness resumes the turn only after it has taken the answer, and `outreach.send` moves
+  // the case after that. Re-read when the gate clears, or the notice behind the settled panel
+  // keeps the state it had before the approval.
+  const liveId = live?.tool_call_id ?? null
+  const previousId = useRef<string | null>(null)
+  useEffect(() => {
+    if (previousId.current !== null && liveId === null) load()
+    previousId.current = liveId
+  }, [liveId, load])
 
   if (error !== null) {
     return (
@@ -106,9 +134,23 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
     )
   }
 
+  const gate = live ?? held
+
   return (
     <>
       <Back onBack={onBack} />
+
+      {/* Keyed on the call: a second gate on the same case must arrive on a fresh component,
+          not inherit the first one's answered state. */}
+      {gate === null ? null : (
+        <ApprovalGate
+          key={gate.tool_call_id}
+          gate={gate}
+          detail={detail}
+          onAnswered={load}
+          onReload={load}
+        />
+      )}
 
       <div className="notice-head">
         <h2>
@@ -157,8 +199,9 @@ export function Case({ caseId, onBack }: { caseId: string; onBack: () => void })
           ))
         )}
         <span>
-          This screen cannot send. The only way a message leaves is a human approving the agent's
-          gated call.
+          This screen cannot send. It can only answer a call the harness has already suspended,
+          which is a different thing: if the harness is holding nothing, there is nothing here to
+          approve.
         </span>
       </p>
     </>

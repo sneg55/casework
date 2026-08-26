@@ -8,8 +8,11 @@ import { LedgerPanel, type LedgerRequest } from '../components/LedgerPanel'
 import { Register } from '../components/Register'
 import { Singles } from '../components/Singles'
 import { Totals } from '../components/Totals'
+import { WaitingBanner } from '../components/WaitingBanner'
 import { api, type Bucket, type QueueCase, type Queue as QueueData } from '../lib/api'
-import { whyNothingIsReady } from '../lib/blocking'
+import { useApprovals } from '../lib/approvals'
+import { liveCases, whyNothingIsReady } from '../lib/blocking'
+import { count } from '../lib/words'
 
 // The one reason that says the feed is healthy rather than suppressed. It comes from
 // scripts/cases.py, which is where the wording is defined.
@@ -20,6 +23,7 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER)
   const [ledger, setLedger] = useState<LedgerRequest | null>(null)
+  const approvals = useApprovals()
   const openBucket = (bucket: Bucket) => {
     setLedger({ bucket })
   }
@@ -58,22 +62,25 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
   const run = data.run
   const isGrouped = (row: QueueCase) => row.cause_kind !== 'individual'
   const feeds = (rows: QueueCase[]) => rows.reduce((sum, row) => sum + row.agency_count, 0)
-  const allGrouped = data.cases.filter(isGrouped)
+  const live = liveCases(data.cases)
+  const allGrouped = live.filter(isGrouped)
   const shown = data.cases.filter((row) => matches(row, filter))
   const grouped = shown.filter(isGrouped)
   const singles = shown.filter((row) => !isGrouped(row))
 
   return (
     <>
+      <WaitingBanner approvals={approvals} cases={data.cases} onOpen={onOpen} />
+
       <div className="thesis">
         <div className="figure">
           {run.failing}
           <span className="to overprint">→</span>
-          {data.cases.length}
+          {live.length}
         </div>
         <p>
           A per-feed view opens {run.failing} tickets on this run. The catalog already answers{' '}
-          {run.suppressed_catalog} of them. The {run.actionable} left share {data.cases.length} root
+          {run.suppressed_catalog} of them. The {run.actionable} left share {live.length} root
           causes, and {allGrouped.length} of those causes account for {feeds(allGrouped)} feeds
           between them.
         </p>
@@ -110,7 +117,7 @@ export function Queue({ onOpen }: { onOpen: (caseId: string) => void }) {
         <Register
           rows={grouped}
           onOpen={onOpen}
-          caption={`${String(grouped.length)} grouped causes covering ${String(feeds(grouped))} feeds`}
+          caption={`${count(grouped.length, 'grouped cause')} covering ${count(feeds(grouped), 'feed')}`}
         />
       )}
 

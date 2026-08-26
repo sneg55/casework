@@ -1,0 +1,72 @@
+{
+  "$schema": "../node_modules/testreel/recording-definition.schema.json",
+  "url": "http://localhost:5273/#/cases/83d87fefd630",
+  "viewport": {
+    "width": 1440,
+    "height": 810
+  },
+  "outputFormat": "mp4",
+  "cursor": {
+    "enabled": true,
+    "size": 30,
+    "color": "#c0392b",
+    "rippleColor": "#c0392b",
+    "rippleSize": 46,
+    "idleHide": false,
+    "transitionMs": 650
+  },
+  "steps": [
+    {
+      "action": "wait",
+      "ms": 3000
+    },
+    {
+      "action": "hover",
+      "selector": ".gate-what dd:has-text('read at send time')"
+    },
+    {
+      "action": "wait",
+      "ms": 3500
+    },
+    {
+      "action": "hover",
+      "selector": ".gate-said"
+    },
+    {
+      "action": "wait",
+      "ms": 2500
+    },
+    {
+      "action": "hover",
+      "selector": ".gate-draft .subject-line"
+    },
+    {
+      "action": "wait",
+      "ms": 2000
+    },
+    {
+      "action": "scroll",
+      "y": 300
+    },
+    {
+      "action": "wait",
+      "ms": 1500
+    },
+    {
+      "action": "click",
+      "selector": "button.allow"
+    },
+    {
+      "action": "wait",
+      "ms": 8000
+    },
+    {
+      "action": "scroll",
+      "y": -600
+    },
+    {
+      "action": "wait",
+      "ms": 4500
+    }
+  ]
+}

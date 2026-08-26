@@ -97,6 +97,17 @@ export interface DecisionInput {
   until?: string | undefined
 }
 
+/**
+ * A steward refused a send at the gate. The case does not move: refusing is not a decision
+ * about the cause, it is a decision about this message, and the cause is still failing. But it
+ * is recorded, because "nobody has acted on this case" is false the moment somebody says no.
+ */
+export function recordDenial(store: Store, caseId: string, actor: string, note?: string): void {
+  store.db
+    .prepare('INSERT INTO decisions (case_id, actor, action, at, note) VALUES (?, ?, ?, ?, ?)')
+    .run(caseId, actor, 'deny', new Date().toISOString(), note ?? null)
+}
+
 export function decide(
   store: Store,
   input: DecisionInput,

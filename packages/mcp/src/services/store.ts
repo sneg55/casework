@@ -9,6 +9,7 @@ import Database from 'better-sqlite3'
 import { RUNS_BEFORE_DRAFT } from '../constants/enums.js'
 import type { CaseDocument, CaseRecord } from '../schemas/caseDocument.js'
 import { type CaseRow, caseRowSchema } from '../types/rows.js'
+import { migrate } from './migrate.js'
 import { SCHEMA } from './schema.sql.js'
 
 export type Store = ReturnType<typeof openStore>
@@ -33,6 +34,7 @@ export function openStore(dbPath: string) {
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   db.exec(SCHEMA)
+  migrate(db)
 
   const selectCase = db.prepare<[string], unknown>('SELECT * FROM cases WHERE case_id = ?')
   const upsertCase = db.prepare(`
@@ -48,6 +50,10 @@ export function openStore(dbPath: string) {
   const insertMember = db.prepare(`
     INSERT INTO case_members (case_id, run_date, feed_id, role, reason)
     VALUES (?, ?, ?, ?, ?)`)
+  // A run's suppressions are replaced, not merged. INSERT OR REPLACE alone leaves behind rows
+  // an earlier build produced and a later one does not, and the register reads those stale rows
+  // as a count while the evidence panel, which reads the run file, does not.
+  const clearSuppressions = db.prepare('DELETE FROM suppressions WHERE run_date = ?')
   const insertSuppression = db.prepare(`
     INSERT OR REPLACE INTO suppressions (run_date, feed_id, cause_key, reason)
     VALUES (?, ?, ?, ?)`)
@@ -110,6 +116,7 @@ export function openStore(dbPath: string) {
       writeCase(record, doc.run_date)
       present.push(record.case_id)
     }
+    clearSuppressions.run(doc.run_date)
     for (const item of doc.suppressed) {
       insertSuppression.run(doc.run_date, item.feed_id, item.cause_key, item.reason)
     }

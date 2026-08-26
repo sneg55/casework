@@ -362,3 +362,33 @@ td.state {
     font-size: 46px;
   }
 }
+
+/* Sortable headers. The button inherits the header's type so the row still reads as a rule. */
+thead th .sort {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+thead th.r .sort {
+  flex-direction: row-reverse;
+}
+thead th .sort:hover {
+  color: var(--over);
+}
+thead th .sort:focus-visible {
+  outline: 2px solid var(--over);
+  outline-offset: 2px;
+}
+thead th .arrow {
+  color: var(--over);
+  font-size: 10px;
+  min-width: 8px;
+}
